@@ -182,6 +182,13 @@ void HP_SetNumRecords(void *block, int n)
     memcpy( (char*)block + BLOCK_SIZE - 2*sizeof(int), &n, sizeof(int) );
 }
 
+int HP_GetNumRecords(void *block)
+{
+    int num;
+    memcpy(&num, (char*)block + BLOCK_SIZE - 2*sizeof(int), sizeof(int));
+    return num;
+}
+
 int HP_AddNextBlock(int fd, int current_num)
 {
     void *current, *new;
@@ -204,4 +211,62 @@ int HP_AddNextBlock(int fd, int current_num)
     BF_WriteBlock(fd, new_num);
 
     return new_num;
+}
+
+int HP_InsertRecordtoBlock(int fd, int block_num, Record rec)
+{
+    void *block;
+    int num_records = HP_GetNumRecords(block);
+
+    if (BF_ReadBlock(fd, block_num, &block) < 0) { return -1; }
+    if( num_records < MAX_RECORDS)
+    {
+        void* data = GetRecordData(&rec);
+
+        memcpy( (char*)block + num_records*RECORD_SIZE, data, RECORD_SIZE );
+        free(data);     // this won't be needed anymore
+
+        if (BF_WriteBlock(fd, block_num) < 0){ return -1; }
+
+        return 0;
+    }
+    else
+    {
+        return -1;
+    }
+}
+
+int HP_InsertEntry( HP_info header_info, Record record )
+{
+    int fd = header_info.fileDesc;
+    
+    void *current;
+    if (BF_ReadBlock(fd, 0, &current) < -1) { return -1; }
+    
+    int current_block_num = 0;
+    int next_block_num = HP_GetNextBlockNumber(current);
+
+    while(next_block_num != -1)
+    {
+        current_block_num = next_block_num;
+        if (BF_ReadBlock(fd, current_block_num, &current) < 0) { return -1; }
+
+        if (HP_InsertRecordtoBlock(fd, current_block_num, record) == 0)
+        {
+            return current_block_num;
+        }
+
+        next_block_num = HP_GetNextBlockNumber(current);
+    }
+    int new_block_num = HP_AddNextBlock(fd, current_block_num); 
+    if (new_block_num < 0) { return -1; }
+
+    if (HP_InsertRecordtoBlock(fd, new_block_num, record) == 0)
+    {
+        return new_block_num;
+    }
+    else
+    {
+        return -1;
+    }
 }
