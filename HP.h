@@ -56,3 +56,7 @@ void* GetRecordData(const Record *rec);
 HP_info* Get_HP_info(int fd);
 
 void* Get_HP_info_Data(const HP_info *info);
+
+void HP_SetNumRecords(void *block, int n);
+
+int HP_AddNextBlock(int fd, int current_num);

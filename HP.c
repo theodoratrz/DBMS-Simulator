@@ -176,3 +176,32 @@ int HP_CloseFile(HP_info* header_info)
     free(header_info);
     return 0;
 }
+
+void HP_SetNumRecords(void *block, int n)
+{
+    memcpy( (char*)block + BLOCK_SIZE - 2*sizeof(int), &n, sizeof(int) );
+}
+
+int HP_AddNextBlock(int fd, int current_num)
+{
+    void *current, *new;
+    int new_num;
+
+    if (BF_ReadBlock(fd, current_num, &current) < 0) { return -1; }
+
+    if (BF_AllocateBlock(fd) < 0) { return -1; }
+
+    if ( (new_num = BF_GetBlockCounter(fd) - 1) < -1  ) { return -1; }
+
+    HP_SetNextBlockNumber(current, new_num);
+
+    BF_WriteBlock(fd, current_num);
+
+    if (BF_ReadBlock(fd, new_num, &new) < 0) { return -1; }
+    HP_SetNumRecords(new, 0);
+    HP_SetNextBlockNumber(new, -1);
+
+    BF_WriteBlock(fd, new_num);
+
+    return new_num;
+}
