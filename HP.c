@@ -226,6 +226,7 @@ int HP_InsertRecordtoBlock(int fd, int block_num, Record rec)
         memcpy( (char*)block + num_records*RECORD_SIZE, data, RECORD_SIZE );
         free(data);     // this won't be needed anymore
 
+        HP_SetNumRecords(block, num_records + 1);
         if (BF_WriteBlock(fd, block_num) < 0){ return -1; }
 
         return 0;
