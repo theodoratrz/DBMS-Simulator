@@ -7,6 +7,7 @@
 #define HP_INFO_SIZE 12
 #define RECORD_SIZE 94
 #define MAX_RECORDS 5
+#define RECORD_KEY "id"
 
 typedef struct{
     int id;
@@ -65,3 +66,4 @@ int HP_AddNextBlock(int fd, int current_num);
 int HP_InsertRecordtoBlock(int fd, int current_num, Record rec);
 
 int HP_GetNumRecords(void *block);
+

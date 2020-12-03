@@ -43,7 +43,9 @@ void* HP_GetNextBlock(int fd, void *current)
     void *next_block;
 
     next_block_num = HP_GetNextBlockNumber(current);
-    BF_ReadBlock(fd, next_block_num, &next_block);
+
+    if (next_block_num == -1) { return NULL; }
+    if (BF_ReadBlock(fd, next_block_num, &next_block) < 0) { return NULL; }
 
     return next_block;
 }
@@ -270,4 +272,55 @@ int HP_InsertEntry( HP_info header_info, Record record )
     {
         return -1;
     }
+}
+
+int HP_RecordKeyHasValue(void *record, const char *key_name, void *value)
+{
+
+}
+
+int BlockHasRecordWithKey(void *block, void *key_value, Record *rec)
+{
+
+}
+
+void CopyRecord(void *dest, void *src)
+{
+    memcpy(dest, src, RECORD_SIZE);
+}
+
+void* GetLastRecord(void *block)
+{
+    return (char*)block + (HP_GetNumRecords(block) - 1)*RECORD_SIZE;
+}
+
+int HP_DeleteRecordFromBlock(void *block, const char *key_name, void *value)
+{
+    int num_records = HP_GetNumRecords(block);
+    if(num_records == 0) { return -1; }
+
+    int curr_record_num = 1;
+    void *curr_record;
+    curr_record = block;
+
+    while( curr_record_num <= num_records )
+    {
+        if (HP_RecordKeyHasValue(curr_record, key_name, value) == 0)
+        {
+            // Delete record (replace with last etc.)
+            if (curr_record_num!= num_records)
+            {
+                CopyRecord(curr_record, GetLastRecord(block));
+            }
+            HP_SetNumRecords(block, num_records -1);
+            return 0;
+        }
+        curr_record = NextRecord(curr_record);
+        curr_record_num++;
+    }
+}
+
+int HP_DeleteEntry(HP_info header_info, void *value )
+{
+    
 }
