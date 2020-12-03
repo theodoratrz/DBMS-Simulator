@@ -289,6 +289,11 @@ void CopyRecord(void *dest, void *src)
     memcpy(dest, src, RECORD_SIZE);
 }
 
+void* NextRecord(void *current)
+{
+    return (char*)current + RECORD_SIZE;
+}
+
 void* GetLastRecord(void *block)
 {
     return (char*)block + (HP_GetNumRecords(block) - 1)*RECORD_SIZE;
@@ -322,5 +327,24 @@ int HP_DeleteRecordFromBlock(void *block, const char *key_name, void *value)
 
 int HP_DeleteEntry(HP_info header_info, void *value )
 {
-    
+    int fd = header_info.fileDesc;
+    void *curr_block;
+
+    if ( BF_ReadBlock(fd, 0, &curr_block) < 0) { return -1; }
+
+    int curr_block_num = HP_GetNextBlockNumber(curr_block);
+
+    while(curr_block_num != -1)
+    {
+        if (BF_ReadBlock(fd, curr_block_num, &curr_block) < 0 ) { return -1; }
+
+        if (HP_DeleteRecordFromBlock(curr_block, header_info.attrName, value) == 0)
+        // Record Deleted
+        {
+            if (BF_WriteBlock(fd, curr_block_num) < 0) { return -1; }
+            return 0;
+        }
+        curr_block_num = HP_GetNextBlockNumber(curr_block);
+    }
+
 }

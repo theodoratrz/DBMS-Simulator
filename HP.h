@@ -67,3 +67,8 @@ int HP_InsertRecordtoBlock(int fd, int current_num, Record rec);
 
 int HP_GetNumRecords(void *block);
 
+void CopyRecord(void *dest, void *src);
+
+void* NextRecord(void *current);
+
+int HP_DeleteRecordFromBlock(void *block, const char *key_name, void *value);

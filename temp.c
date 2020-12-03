@@ -45,13 +45,18 @@ int main(void)
 
     HP_CreateFile(fileName, 'i', "id", 4);
     HP_info *info = HP_OpenFile(fileName);
-    Record rec;
-    rec.id = 33;
-    strcpy (rec.name, "noname");
-    strcpy(rec.surname, "nosurname");
-    strcpy(rec.address, "noaddress");
-    HP_InsertEntry(*info, rec);
-    HP_InsertEntry(*info, rec);
+    Record rec1, rec2;
+    rec1.id = 33;
+    strcpy (rec1.name, "noname");
+    strcpy(rec1.surname, "nosurname");
+    strcpy(rec1.address, "noaddress");
+    HP_InsertEntry(*info, rec1);
+
+    rec2.id = 66;
+    strcpy (rec2.name, "aname");
+    strcpy(rec2.surname, "asurname");
+    strcpy(rec2.address, "aaddress");
+    HP_InsertEntry(*info, rec2);
     if (HP_CloseFile(info) < 0) {return 1;}
     
     return 0;
