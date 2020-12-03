@@ -60,6 +60,12 @@ int main(void)
 
     HP_DeleteEntry(*info, &(rec2.id));
 
+    rec1.id = 51;
+    strcpy (rec1.name, "name1");
+    strcpy(rec1.surname, "surname1");
+    strcpy(rec1.address, "address1");
+    HP_InsertEntry(*info, rec1);
+
     if (HP_CloseFile(info) < 0) {return 1;}
     
     return 0;
