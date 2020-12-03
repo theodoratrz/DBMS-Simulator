@@ -55,6 +55,8 @@ void* HP_GetNextBlock(  int fd,
 
 void* GetRecordData(const Record *rec);
 
+Record* GetRecord(const void *data);
+
 HP_info* Get_HP_info(int fd);
 
 void* Get_HP_info_Data(const HP_info *info);

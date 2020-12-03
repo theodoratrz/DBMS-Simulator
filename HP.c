@@ -62,6 +62,26 @@ int HP_GetNextBlockNumber(void *current)
     return next;
 }
 
+Record* GetRecord(const void *data)
+{
+    Record *record = malloc(sizeof(Record));
+
+    const void *temp = data;
+
+    memcpy(&(record->id), temp, sizeof(int));
+    temp = (int*)temp + 1;
+
+    strcpy(record->name, (char*)temp);
+    temp = (char*)temp + sizeof(record->name);
+
+    strcpy(record->surname, (char*)temp);
+    temp = (char*)temp + sizeof(record->surname);
+
+    strcpy(record->address, (char*)temp);
+
+    return record;
+}
+
 void* GetRecordData(const Record *rec)
 {
     void *data;
@@ -276,7 +296,19 @@ int HP_InsertEntry( HP_info header_info, Record record )
 
 int HP_RecordKeyHasValue(void *record, const char *key_name, void *value)
 {
+    Record *temp;
 
+    if ( strcmp(key_name, "id") == 0)
+    {
+        temp = GetRecord(record);
+        if ( memcmp( &(temp->id), value, sizeof(int) ) == 0 )
+        {
+            free(temp);
+            return 0;
+        }
+        free(temp);
+    }
+    return -1;
 }
 
 int BlockHasRecordWithKey(void *block, void *key_value, Record *rec)
@@ -347,4 +379,5 @@ int HP_DeleteEntry(HP_info header_info, void *value )
         curr_block_num = HP_GetNextBlockNumber(curr_block);
     }
 
+    return -1;
 }

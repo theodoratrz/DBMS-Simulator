@@ -57,6 +57,9 @@ int main(void)
     strcpy(rec2.surname, "asurname");
     strcpy(rec2.address, "aaddress");
     HP_InsertEntry(*info, rec2);
+
+    HP_DeleteEntry(*info, &(rec2.id));
+
     if (HP_CloseFile(info) < 0) {return 1;}
     
     return 0;
