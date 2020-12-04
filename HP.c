@@ -238,7 +238,7 @@ int HP_AddNextBlock(int fd, int current_num)
 int HP_InsertRecordtoBlock(int fd, int block_num, Record rec)
 {
     void *block;
-    
+
     if (BF_ReadBlock(fd, block_num, &block) < 0) { return -1; }
     int num_records = HP_GetNumRecords(block);
 
@@ -332,16 +332,41 @@ int HP_RecordKeyHasValue(void *record, const char *key_name, void *value)
 {
     Record *temp;
 
+    temp = GetRecord(record);
     if ( strcmp(key_name, "id") == 0)
     {
-        temp = GetRecord(record);
         if ( memcmp( &(temp->id), value, sizeof(int) ) == 0 )
         {
             free(temp);
             return 0;
         }
-        free(temp);
     }
+    else if ( strcmp(key_name, "name") == 0)
+    {
+        if ( strcmp(temp->name, value) == 0 )
+        {
+            free(temp);
+            return 0;
+        }
+    }
+    else if ( strcmp(key_name, "surname") == 0)
+    {
+        if ( strcmp(temp->surname, value) == 0 )
+        {
+            free(temp);
+            return 0;
+        }
+    }
+    else if ( strcmp(key_name, "address") == 0)
+    {
+        if ( strcmp(temp->address, value) == 0 )
+        {
+            free(temp);
+            return 0;
+        }
+    }
+    
+    free(temp);
     return -1;
 }
 
@@ -428,6 +453,70 @@ int HP_DeleteEntry(HP_info header_info, void *value )
         }
         curr_block_num = HP_GetNextBlockNumber(curr_block);
     }
-
     return -1;
+}
+
+void PrintRecord(Record rec)
+{
+    printf("{ %d, %s, %s, %s }\n", rec.id, rec.name, rec.surname, rec.address);
+}
+
+int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value)
+{
+    int num_records = HP_GetNumRecords(block);
+    if(num_records == 0) { return -1; }
+    int found_records = 0;
+
+    int curr_record_num = 1;
+
+    void *curr_record;
+    curr_record = block;
+    Record *record;
+
+    while( curr_record_num <= num_records )
+    {
+        if (HP_RecordKeyHasValue(curr_record, key_name, value) == 0)
+        {
+            record = GetRecord(curr_record);
+            PrintRecord(*record);
+            found_records++;
+            free(record);
+        }
+        curr_record = NextRecord(curr_record);
+        curr_record_num++;
+    }
+
+    if (found_records) { return 0; }
+    
+    return -1;
+}
+
+int HP_GetAllEntries(HP_info header_info, void *value)
+{
+    int fd = header_info.fileDesc;
+    void *curr_block;
+
+    if ( BF_ReadBlock(fd, 0, &curr_block) < 0) { return -1; }
+
+    int curr_block_num = HP_GetNextBlockNumber(curr_block);
+    int read_blocks_until_rec = 0;
+    int blocks_from_last_rec = 1;
+
+    while(curr_block_num != -1)
+    {
+        if (BF_ReadBlock(fd, curr_block_num, &curr_block) < 0 ) { return -1; }
+
+        if (PrintBlockRecordsWithKey(curr_block, header_info.attrName, value) == 0)
+        {
+            read_blocks_until_rec += blocks_from_last_rec;
+            blocks_from_last_rec = 1;
+        }
+        else
+        {
+            blocks_from_last_rec++;
+        }
+
+        curr_block_num = HP_GetNextBlockNumber(curr_block);
+    }
+    return read_blocks_until_rec;
 }

@@ -7,67 +7,52 @@
 
 int main(void)
 {
-    /*
-    Record rec;
-    rec.id = 25;
-    sprintf(rec.name, "Bob");
-    sprintf(rec.surname, "Jones");
-    sprintf(rec.address, "Avenue 36");
-
-    void *data = GetRecordData(&rec);
-    int id;
-    void *temp = data;
-
-    memcpy(&id, temp, sizeof(int));
-    temp = (int*)temp + 1;
-
-    char* name = malloc(15);
-    memcpy(name, temp, 15);
-    temp = (char*)temp + 15;
-
-    char* surname = malloc(25);
-    memcpy(surname, temp, 25);
-    temp = (char*)temp + 25;
-
-    char* address = malloc(50);
-    memcpy(address, temp, 50);
-    
-    printf("id: %d\nname: %s\nsurname: %s\naddress: %s\n", id, name, surname, address);
-
-    free(data);
-    free(name);
-    free(surname);
-    free(address);
-    */
-
     char *fileName = "file";
     BF_Init();
 
     HP_CreateFile(fileName, 'i', "id", 4);
     HP_info *info = HP_OpenFile(fileName);
-    Record rec1, rec2;
-    rec1.id = 33;
-    strcpy (rec1.name, "noname");
-    strcpy(rec1.surname, "nosurname");
-    strcpy(rec1.address, "noaddress");
-    HP_InsertEntry(*info, rec1);
+    Record rec;
 
-    rec2.id = 66;
-    strcpy (rec2.name, "aname");
-    strcpy(rec2.surname, "asurname");
-    strcpy(rec2.address, "aaddress");
-    HP_InsertEntry(*info, rec2);
+    for (int i = 0; i < 5; i++)
+    {
+        rec.id = i;
+        strcpy (rec.name, "_name_");
+        strcpy(rec.surname, "_surname_");
+        strcpy(rec.address, "_address_");
+        HP_InsertEntry(*info, rec);
+    }
 
-    HP_InsertEntry(*info, rec1);
+    for (int i = 5; i < 10; i++)
+    {
+        rec.id = i;
+        strcpy (rec.name, "@name@");
+        strcpy(rec.surname, "@surname@");
+        strcpy(rec.address, "@address@");
+        HP_InsertEntry(*info, rec);
+    }
 
-    HP_DeleteEntry(*info, &(rec1.id));
+    for (int i = 10; i < 15; i++)
+    {
+        rec.id = i;
+        strcpy (rec.name, "_name_");
+        strcpy(rec.surname, "_surname_");
+        strcpy(rec.address, "_address_");
+        HP_InsertEntry(*info, rec);
+    }
 
-    rec1.id = 51;
-    strcpy (rec1.name, "name1");
-    strcpy(rec1.surname, "surname1");
-    strcpy(rec1.address, "address1");
-    HP_InsertEntry(*info, rec1);
+    free(info->attrName);
+    info->attrName = malloc(strlen("name") + 1 );
+    strcpy(info->attrName, "name");
+    int n;
+    n =  HP_GetAllEntries(*info, "_name_");
+    
+    printf("%d\n", n);
 
+    n = HP_GetAllEntries(*info, "@name@");
+
+    printf("%d\n", n);
+    
     if (HP_CloseFile(info) < 0) {return 1;}
     
     return 0;

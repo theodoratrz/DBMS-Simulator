@@ -69,6 +69,8 @@ int HP_InsertRecordtoBlock(int fd, int current_num, Record rec);
 
 int HP_GetNumRecords(void *block);
 
+void PrintRecord(Record rec);
+
 void CopyRecord(void *dest, void *src);
 
 void* NextRecord(void *current);
@@ -80,3 +82,5 @@ int HP_DeleteRecordFromBlock(void *block, const char *key_name, void *value);
 int BlockHasRecordWithKey(void *block, const char* key_name, Record *rec);
 
 int HP_RecordKeyHasValue(void *record, const char *key_name, void *value);
+
+int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value);
