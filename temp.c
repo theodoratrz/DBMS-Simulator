@@ -58,7 +58,9 @@ int main(void)
     strcpy(rec2.address, "aaddress");
     HP_InsertEntry(*info, rec2);
 
-    HP_DeleteEntry(*info, &(rec2.id));
+    HP_InsertEntry(*info, rec1);
+
+    HP_DeleteEntry(*info, &(rec1.id));
 
     rec1.id = 51;
     strcpy (rec1.name, "name1");

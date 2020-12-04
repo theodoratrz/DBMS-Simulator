@@ -238,9 +238,10 @@ int HP_AddNextBlock(int fd, int current_num)
 int HP_InsertRecordtoBlock(int fd, int block_num, Record rec)
 {
     void *block;
+    
+    if (BF_ReadBlock(fd, block_num, &block) < 0) { return -1; }
     int num_records = HP_GetNumRecords(block);
 
-    if (BF_ReadBlock(fd, block_num, &block) < 0) { return -1; }
     if( num_records < MAX_RECORDS)
     {
         void* data = GetRecordData(&rec);
@@ -268,29 +269,62 @@ int HP_InsertEntry( HP_info header_info, Record record )
     
     int current_block_num = 0;
     int next_block_num = HP_GetNextBlockNumber(current);
+    int empty_block_found = 0;
+    int empty_block_num = -1;
+    int num_rec;
 
     while(next_block_num != -1)
     {
         current_block_num = next_block_num;
         if (BF_ReadBlock(fd, current_block_num, &current) < 0) { return -1; }
+        num_rec = HP_GetNumRecords(current);
 
-        if (HP_InsertRecordtoBlock(fd, current_block_num, record) == 0)
+        if (num_rec == 0)
         {
-            return current_block_num;
+            if ( !empty_block_found )
+            {
+                empty_block_num = current_block_num;
+                empty_block_found = 1;
+            }         
         }
-
+        else
+        {
+            if ( num_rec < MAX_RECORDS )
+            {
+                if ( !empty_block_found )
+                {
+                    empty_block_num = current_block_num;
+                    empty_block_found = 1;
+                }
+            }
+            if (BlockHasRecordWithKey(current, header_info.attrName, &record) == 0)
+            {
+                return -1;
+            }
+        }
         next_block_num = HP_GetNextBlockNumber(current);
     }
-    int new_block_num = HP_AddNextBlock(fd, current_block_num); 
-    if (new_block_num < 0) { return -1; }
 
-    if (HP_InsertRecordtoBlock(fd, new_block_num, record) == 0)
+    if ( !empty_block_found)
     {
-        return new_block_num;
+        int new_block_num = HP_AddNextBlock(fd, current_block_num); 
+        if (new_block_num < 0) { return -1; }
+
+        if (HP_InsertRecordtoBlock(fd, new_block_num, record) == 0)
+        {
+            return new_block_num;
+        }
+        else
+        {
+            return -1;
+        }
     }
     else
     {
-        return -1;
+        if (HP_InsertRecordtoBlock(fd, empty_block_num, record) == 0)
+        {
+            return empty_block_num;
+        }
     }
 }
 
@@ -311,9 +345,25 @@ int HP_RecordKeyHasValue(void *record, const char *key_name, void *value)
     return -1;
 }
 
-int BlockHasRecordWithKey(void *block, void *key_value, Record *rec)
+int BlockHasRecordWithKey(void *block, const char* key_name, Record *rec)
 {
+    int num_records = HP_GetNumRecords(block);
+    if(num_records == 0) { return -1; }
 
+    int curr_record_num = 1;
+    void *curr_record;
+    curr_record = block;
+
+    while( curr_record_num <= num_records )
+    {
+        if (HP_RecordKeyHasValue(curr_record, key_name, &(rec->id)) == 0)
+        {
+            return 0;
+        }
+        curr_record = NextRecord(curr_record);
+        curr_record_num++;
+    }
+    return -1;
 }
 
 void CopyRecord(void *dest, void *src)
