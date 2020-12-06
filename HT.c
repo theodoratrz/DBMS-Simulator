@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
+#include "BF.h"
 #include "HT.h"
 
 Record* GetRecord(const void *data)
@@ -150,8 +152,6 @@ int HT_InitFile(int fd, char type, const char *name, int length, unsigned long i
 
     if (BF_WriteBlock(fd, 0) < 0) { return -1; }
 
-    if (BF_CloseFile(fd) < 0) { return -1; }
-
     return 0;
 }
 
@@ -212,6 +212,8 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
     if ( HT_InitFile(fd, attrType, attrName, attrLength, buckets) < 0 ) { return -1; }
 
     if ( HT_CreateBuckets(fd, buckets) < 0) { return -1; }
+
+    if (BF_CloseFile(fd) < 0) { return -1; }
     
     return 0;
 }

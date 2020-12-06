@@ -1,7 +1,6 @@
 #ifndef HT_H
 #define HT_H
 
-#include "BF.h"
 /*
  * File: HT.h
  * Pavlos Spanoudakis (sdi1800184)
@@ -30,26 +29,19 @@ typedef struct{
     char address[50];
 } Record;
 
-int HT_CreateIndex( char *fileName, /* όνομα αρχείου */
-                    char attrType, /* τύπος πεδίου-κλειδιού: 'c', 'i' */
-                    char* attrName, /* όνομα πεδίου-κλειδιού */
-                    int attrLength, /* μήκος πεδίου-κλειδιού */
-                    int buckets /* αριθμός κάδων κατακερματισμού*/ );
-                    
-HT_info* HT_OpenIndex​( char *fileName /* όνομα αρχείου */ );
+int HT_CreateIndex(char *fileName, char attrType, char* attrName,int attrLength, int buckets);
 
-int HT_CloseIndex​( HT_info* header_info );
+HT_info* HT_OpenIndex(char *fileName);
 
-int HT_InsertEntry( HT_info header_info, /* επικεφαλίδα του αρχείου*/
-                    Record record /* δομή που προσδιορίζει την εγγραφή */ );
+int HT_CloseIndex(HT_info *header_info);
 
-int HT_DeleteEntry​( HT_info header_info, /* επικεφαλίδα του αρχείου*/
-                    void *value /* τιμή τουπεδίου-κλειδιού προς διαγραφή */);
+int HT_InsertEntry(HT_info header_info, Record record);
 
-int HT_GetAllEntries​( HT_info header_info, /* επικεφαλίδα του αρχείου */
-                      void *value /* τιμή τουπεδίου-κλειδιού προς αναζήτηση */);
+int HT_DeleteEntry(HT_info header_info, void *value);
 
-int HashStatistics​( char* filename /* όνομα του αρχείου που ενδιαφέρει */ );
+int HT_GetAllEntries(HT_info header_info, void *value);
+
+int HashStatistics(char *filename);
 
 Record* GetRecord(const void *data);
 

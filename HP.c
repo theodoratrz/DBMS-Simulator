@@ -173,6 +173,8 @@ int HP_CreateFile(const char *fileName, const char attrType, const char* attrNam
     if( fd < 0) { return -1; }
 
     if ( HP_InitFile(fd, attrType, attrName, attrLength) < 0 ) { return -1; }
+
+    if (BF_CloseFile(fd) < 0) { return -1; }
     
     return 0;
 }
