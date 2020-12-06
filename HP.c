@@ -25,7 +25,8 @@ int HP_InitFile(int fd, char type, const char *name, int length)
 
     memcpy(block, "heap", strlen("heap") + 1);
 
-    memcpy(block + strlen("heap") + 1, data, sizeof(HP_info));
+    //memcpy(block + strlen("heap") + 1, data, sizeof(HP_info));
+    memcpy(block + strlen("heap") + 1, data, HP_INFO_SIZE);
 
     // set pointer to next block (-1)
     HP_SetNextBlockNumber(block, -1);
@@ -134,7 +135,6 @@ HP_info* Get_HP_info(int fd)
     memcpy(&(info->attrLength), temp, sizeof(int));
 
     return info;
-
 }
 
 void* Get_HP_info_Data(const HP_info *info)

@@ -1,3 +1,6 @@
+#ifndef HP_H
+#define HP_H
+
 /*
  * File: HP.h
  * Pavlos Spanoudakis (sdi1800184)
@@ -84,3 +87,5 @@ int BlockHasRecordWithKey(void *block, const char* key_name, Record *rec);
 int HP_RecordKeyHasValue(void *record, const char *key_name, void *value);
 
 int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value);
+
+#endif
