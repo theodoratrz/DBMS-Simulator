@@ -12,7 +12,9 @@ int main(void)
 
     HT_CreateIndex(fileName, 'i', "id", 4, 10);
 
-    BF_CloseFile(0);
+    HT_info *info = HT_OpenIndex(fileName);
+
+    HT_CloseIndex(info);
     
     return 0;
 }
