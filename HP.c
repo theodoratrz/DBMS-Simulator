@@ -33,8 +33,6 @@ int HP_InitFile(int fd, char type, const char *name, int length)
 
     if (BF_WriteBlock(fd, 0) < 0) { return -1; }
 
-    if (BF_CloseFile(fd) < 0) { return -1; }
-
     return 0;
 }
 
@@ -197,7 +195,8 @@ int HP_CloseFile(HP_info* header_info)
 
     if (BF_CloseFile(header_info->fileDesc) < 0) { return -1; }
 
-    free(header_info);
+    //free(header_info);
+    delete_HP_info(header_info);
     return 0;
 }
 
@@ -521,4 +520,10 @@ int HP_GetAllEntries(HP_info header_info, void *value)
         curr_block_num = HP_GetNextBlockNumber(curr_block);
     }
     return read_blocks_until_rec;
+}
+
+void delete_HP_info(HP_info *info)
+{
+    free(info->attrName);
+    free(info);
 }

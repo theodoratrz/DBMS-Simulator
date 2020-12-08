@@ -8,7 +8,6 @@
  */
 
 #define HT_INFO_SIZE ( sizeof(int) + 1 + 3 + sizeof(int) + sizeof(unsigned long int) )
-//#define RECORD_SIZE 94
 #define RECORD_SIZE (sizeof(int) + 15 + 25 + 50)
 #define MAX_RECORDS 5
 #define MAX_BUCKETS 127
@@ -46,6 +45,8 @@ int HashStatistics(char *filename);
 Record* GetRecord(const void *data);
 
 void* GetRecordData(const Record *rec);
+
+void delete_HT_info(HT_info *info);
 
 void* Get_HT_info_Data(const HT_info *info);
 

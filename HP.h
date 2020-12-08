@@ -88,4 +88,6 @@ int HP_RecordKeyHasValue(void *record, const char *key_name, void *value);
 
 int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value);
 
+void delete_HP_info(HP_info *info);
+
 #endif

@@ -54,7 +54,7 @@ HT_info* Get_HT_info(int fd)
     if (BF_ReadBlock(fd, 0, &block) < 0) { return NULL; }
 
     if (memcmp(block, "hash", strlen("hash") + 1) != 0)
-    // Return fail if this is not a heap file
+    // Return fail if this is not a hash file
     {
         return NULL;
     }
@@ -80,6 +80,12 @@ HT_info* Get_HT_info(int fd)
     memcpy(&(info->numBuckets), temp, sizeof(unsigned long int));
 
     return info;
+}
+
+void delete_HT_info(HT_info *info)
+{
+    free(info->attrName);
+    free(info);
 }
 
 void SetNextBlockNumber(void *current, int num)
@@ -215,5 +221,27 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
 
     if (BF_CloseFile(fd) < 0) { return -1; }
     
+    return 0;
+}
+
+HT_info* HT_OpenIndex(char *fileName)
+{
+    HT_info *info;
+    int fd;
+
+    if ( (fd = BF_OpenFile(fileName)) < 0) { return NULL; }
+
+    info = Get_HT_info(fd);
+
+    return info;
+}
+
+int HT_CloseIndex(HT_info *header_info)
+{
+    if (header_info == NULL) { return -1; }
+
+    if (BF_CloseFile(header_info->fileDesc) < 0) { return -1; }
+
+    delete_HT_info(header_info);
     return 0;
 }
