@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <openssl/sha.h>
 
 #include "BF.h"
 #include "HT.h"
@@ -244,4 +245,22 @@ int HT_CloseIndex(HT_info *header_info)
 
     delete_HT_info(header_info);
     return 0;
+}
+
+int GetHashcode(int id, unsigned long int mod)
+{
+    int result;
+    char *data = (char*)&id;
+    char *hash = malloc(sizeof(SHA_DIGEST_LENGTH));
+    unsigned long int hash_num;
+
+    SHA1(data, 4, hash);
+
+    memcpy(&hash_num, hash, sizeof(unsigned long int));
+
+    free(hash);
+
+    hash_num = hash_num % mod;
+    result = hash_num;
+    return result;
 }

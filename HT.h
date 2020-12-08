@@ -56,4 +56,6 @@ int HT_InitFile(int fd, char type, const char *name, int length, unsigned long i
 
 int HT_CreateBuckets(int fd, int buckets);
 
+int GetHashcode(int id, unsigned long mod);
+
 #endif
