@@ -58,4 +58,8 @@ int HT_CreateBuckets(int fd, int buckets);
 
 int GetHashcode(int id, unsigned long mod);
 
+void* GetNextBucket(void *current);
+
+int GetBlockNumRecords(void *block);
+
 #endif
