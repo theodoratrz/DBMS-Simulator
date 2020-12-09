@@ -159,6 +159,12 @@ void delete_HT_info(HT_info *info)
 
 /* Record-Block Functions */
 
+int NewRecordBlock(int fd)
+{
+    if (BF_AllocateBlock(fd) < 0) { return -1; }
+    return BF_GetBlockCounter(fd) - 1;
+}
+
 int GetBlockNumRecords(void *block)
 {
     int num;
@@ -178,6 +184,67 @@ int GetNextBlockNumber(void *current)
     return next;
 }
 
+int GetNumRecords(void *block)
+{
+    int num;
+    memcpy(&num, (char*)block + BLOCK_SIZE - 2*sizeof(int), sizeof(int));
+    return num;
+}
+
+void SetNumRecords(void *block, int n)
+{
+    memcpy( (char*)block + BLOCK_SIZE - 2*sizeof(int), &n, sizeof(int) );
+}
+
+int AddNextBlock(int fd, int current_num)
+{
+    void *current, *new;
+    int new_num;
+
+    if (BF_ReadBlock(fd, current_num, &current) < 0) { return -1; }
+
+    if (BF_AllocateBlock(fd) < 0) { return -1; }
+
+    if ( (new_num = BF_GetBlockCounter(fd) - 1) < -1  ) { return -1; }
+
+    SetNextBlockNumber(current, new_num);
+
+    BF_WriteBlock(fd, current_num);
+
+    if (BF_ReadBlock(fd, new_num, &new) < 0) { return -1; }
+    SetNumRecords(new, 0);
+    SetNextBlockNumber(new, -1);
+
+    BF_WriteBlock(fd, new_num);
+
+    return new_num;
+}
+
+int InsertRecordtoBlock(int fd, int block_num, Record rec)
+{
+    void *block;
+
+    if (BF_ReadBlock(fd, block_num, &block) < 0) { return -1; }
+    int num_records = GetNumRecords(block);
+
+    if( num_records < MAX_RECORDS)
+    {
+        void* data = GetRecordData(&rec);
+
+        memcpy( (char*)block + num_records*RECORD_SIZE, data, RECORD_SIZE );
+        free(data);     // this won't be needed anymore
+
+        SetNumRecords(block, num_records + 1);
+        if (BF_WriteBlock(fd, block_num) < 0){ return -1; }
+
+        return 0;
+    }
+    else
+    {
+        return -1;
+    }
+}
+
 /* Bucket-Block functions */
 
 void InitBuckets(void *block)
@@ -188,11 +255,11 @@ void InitBuckets(void *block)
 
     while (num_buckets < MAX_BUCKETS)
     {
-        memcpy(temp, &init_value, sizeof(int));
-        temp = (int*)temp + 1;
+        //memcpy(temp, &init_value, sizeof(int));
+        //temp = (int*)temp + 1;
 
-        //SetBucket(temp, init_value);
-        //temp = GetNextBucket(temp);
+        SetBucket(temp, init_value);
+        temp = GetNextBucket(temp);
 
         num_buckets++;
     }
@@ -206,6 +273,12 @@ void* GetNextBucket(void *current)
 void SetBucket(void *current, int bn)
 {
     memcpy(current, &bn, sizeof(int));
+}
+
+int InsertEntryToBucket(int starting_block_num, Record Record, const char *key_name)
+// Very similar to HP_InsertEntry...
+{
+
 }
 
 /* More general HT functions */
@@ -310,4 +383,54 @@ int HT_CloseIndex(HT_info *header_info)
 
     delete_HT_info(header_info);
     return 0;
+}
+
+int HT_InsertEntry(HT_info header_info, Record record)
+{
+    int fd = header_info.fileDesc;
+    void *current_block;
+    
+    if (BF_ReadBlock(fd, 0, &current_block) < -1) { return -1; }
+
+    int current_block_num = 0;
+    int next_block_num = GetNextBlockNumber(current_block);
+
+    int hash_code = GetHashcode(record.id, header_info.numBuckets);
+    int target_block = hash_code / MAX_BUCKETS;
+    void *target_bucket;
+    int bucket_starting_block;
+    int block_counter = 0;
+
+    while (next_block_num != -1)
+    {
+        current_block_num = next_block_num;
+        if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
+
+        if (block_counter != target_block)
+        {
+            block_counter++;
+            next_block_num = GetNextBlockNumber(current_block);
+        }
+        else
+        {
+            target_bucket = (char*)current_block + hash_code - (block_counter*MAX_BUCKETS);
+            memcpy(&bucket_starting_block, target_bucket, sizeof(int));
+
+            if (bucket_starting_block == -1)
+            // Bucket Empty
+            {
+                // Create new block
+                bucket_starting_block = NewRecordBlock(fd);
+
+                if (bucket_starting_block == -1) { return -1; }
+                // Make the bucket point to the new block
+                SetBucket(target_bucket, bucket_starting_block);
+                //memcpy(target_bucket, &bucket_starting_block, sizeof(int));
+                if ( BF_WriteBlock(fd, current_block_num) < 0 ) { return -1; }
+            }
+
+            return InsertEntryToBucket(bucket_starting_block, record, header_info.attrName);            
+        }        
+    }
+    return -1;    
 }
