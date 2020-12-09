@@ -14,6 +14,14 @@ int main(void)
 
     HT_info *info = HT_OpenIndex(fileName);
 
+    Record rec;
+    rec.id = 66;
+    sprintf(rec.name, "name%d", 66);
+    sprintf(rec.surname, "surname%d", 66);
+    sprintf(rec.address, "address");
+
+    HT_InsertEntry(*info, rec);
+
     HT_CloseIndex(info);
     
     return 0;

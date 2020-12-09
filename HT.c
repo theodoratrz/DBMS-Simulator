@@ -275,6 +275,7 @@ void SetBucket(void *current, int bn)
     memcpy(current, &bn, sizeof(int));
 }
 
+//TODO
 int InsertEntryToBucket(int starting_block_num, Record Record, const char *key_name)
 // Very similar to HP_InsertEntry...
 {
