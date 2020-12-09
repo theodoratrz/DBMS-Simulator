@@ -1,11 +1,11 @@
-#ifndef HT_H
-#define HT_H
-
 /*
  * File: HT.h
  * Pavlos Spanoudakis (sdi1800184)
  * Theodora Troizi (sdi1800197)
  */
+
+#ifndef HT_H
+#define HT_H
 
 #define HT_INFO_SIZE ( sizeof(int) + 1 + 3 + sizeof(int) + sizeof(unsigned long int) )
 #define RECORD_SIZE (sizeof(int) + 15 + 25 + 50)
@@ -40,11 +40,13 @@ int HT_DeleteEntry(HT_info header_info, void *value);
 
 int HT_GetAllEntries(HT_info header_info, void *value);
 
+int HT_InitFile(int fd, char type, const char *name, int length, unsigned long int bucket);
+
+int HT_CreateBuckets(int fd, int buckets);
+
 int HashStatistics(char *filename);
 
-Record* GetRecord(const void *data);
-
-void* GetRecordData(const Record *rec);
+/* HT_info functions -----------------------------------------------------*/
 
 void delete_HT_info(HT_info *info);
 
@@ -52,14 +54,47 @@ void* Get_HT_info_Data(const HT_info *info);
 
 HT_info* Get_HT_info(int fd);
 
-int HT_InitFile(int fd, char type, const char *name, int length, unsigned long int bucket);
+/* Bucket-Block functions -----------------------------------------------------*/
 
-int HT_CreateBuckets(int fd, int buckets);
-
-int GetHashcode(int id, unsigned long mod);
+void InitBuckets(void *block);
 
 void* GetNextBucket(void *current);
 
+void SetBucket(void *current, int bn);
+
+int InsertEntryToBucket(int starting_block_num, Record Record, const char *key_name);
+
+/* Record-Block Functions -----------------------------------------------------*/
+
+int NewRecordBlock(int fd);
+
 int GetBlockNumRecords(void *block);
+
+void SetNextBlockNumber(void *current, int num);
+
+int GetNextBlockNumber(void *current);
+
+int GetNumRecords(void *block);
+
+void SetNumRecords(void *block, int n);
+
+int AddNextBlock(int fd, int current_num);
+
+int InsertRecordtoBlock(int fd, int block_num, Record rec);
+
+/* Record Functions -----------------------------------------------------*/
+
+Record* GetRecord(const void *data);
+
+void* GetRecordData(const Record *rec);
+
+void CopyRecord(void *dest, void *src);
+
+void* NextRecord(void *current);
+
+void* GetLastRecord(void *block);
+
+/* The Hash function used by HT. */
+int GetHashcode(int id, unsigned long mod);
 
 #endif
