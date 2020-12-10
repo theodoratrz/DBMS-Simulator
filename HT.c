@@ -610,7 +610,9 @@ int HT_DeleteEntry(HT_info header_info, void *value)
     int current_block_num = 0;
     int next_block_num = GetNextBlockNumber(current_block);
 
+    // Could take advantage of header_info.attrType here as well...
     int hash_code = GetHashcode(*((int*)value), header_info.numBuckets);
+    
     int target_block = hash_code / MAX_BUCKETS;
     void *target_bucket;
     int bucket_starting_block;
