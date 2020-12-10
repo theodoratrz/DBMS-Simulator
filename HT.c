@@ -318,6 +318,32 @@ int BlockHasRecordWithKey(void *block, const char* key_name, Record *rec)
     return -1;
 }
 
+int DeleteRecordFromBlock(void *block, const char *key_name, void *value)
+{
+    int num_records = HP_GetNumRecords(block);
+    if(num_records == 0) { return -1; }
+
+    int curr_record_num = 1;
+    void *curr_record;
+    curr_record = block;
+
+    while( curr_record_num <= num_records )
+    {
+        if (HP_RecordKeyHasValue(curr_record, key_name, value) == 0)
+        {
+            // Delete record (replace with last etc.)
+            if (curr_record_num!= num_records)
+            {
+                CopyRecord(curr_record, GetLastRecord(block));
+            }
+            HP_SetNumRecords(block, num_records -1);
+            return 0;
+        }
+        curr_record = NextRecord(curr_record);
+        curr_record_num++;
+    }
+}
+
 /* Bucket-Block functions */
 
 void InitBuckets(void *block)
@@ -411,6 +437,13 @@ int InsertEntryToBucket(int fd, int starting_block_num, Record record, const cha
             return empty_block_num;
         }
     }
+}
+
+int DeleteEntryFromBucket(int fd, int starting_block_num, void *key_value, const char *key_name)
+// TODO
+// Very similar to HP_DeleteEntry...
+{
+
 }
 
 /* More general HT functions */
@@ -565,4 +598,49 @@ int HT_InsertEntry(HT_info header_info, Record record)
         }        
     }
     return -1;    
+}
+
+int HT_DeleteEntry(HT_info header_info, void *value)
+{
+    int fd = header_info.fileDesc;
+    void *current_block;
+    
+    if (BF_ReadBlock(fd, 0, &current_block) < -1) { return -1; }
+
+    int current_block_num = 0;
+    int next_block_num = GetNextBlockNumber(current_block);
+
+    int hash_code = GetHashcode(*((int*)value), header_info.numBuckets);
+    int target_block = hash_code / MAX_BUCKETS;
+    void *target_bucket;
+    int bucket_starting_block;
+    int block_counter = 0;
+
+    while (next_block_num != -1)
+    {
+        current_block_num = next_block_num;
+        if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
+
+        if (block_counter != target_block)
+        {
+            block_counter++;
+            next_block_num = GetNextBlockNumber(current_block);
+        }
+        else
+        {
+            target_bucket = (int*)current_block + hash_code - (block_counter*MAX_BUCKETS);
+            memcpy(&bucket_starting_block, target_bucket, sizeof(int));
+
+            if (bucket_starting_block == -1)
+            // Bucket Empty
+            {
+                return -1;
+            }
+            else
+            {
+                return DeleteEntryFromBucket(fd, bucket_starting_block, value, header_info.attrName);
+            }
+        }        
+    }
+    return -1;
 }
