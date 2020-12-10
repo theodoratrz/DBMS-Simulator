@@ -10,17 +10,20 @@ int main(void)
     char *fileName = "file";
     BF_Init();
 
-    HT_CreateIndex(fileName, 'i', "id", 4, 10);
+    HT_CreateIndex(fileName, 'i', "id", 4, 3);
 
     HT_info *info = HT_OpenIndex(fileName);
 
     Record rec;
-    rec.id = 66;
-    sprintf(rec.name, "name%d", 66);
-    sprintf(rec.surname, "surname%d", 66);
-    sprintf(rec.address, "address");
+    for (int i = 66; i < 71; i++)
+    {
+        rec.id = i;
+        sprintf(rec.name, "name%d", i);
+        sprintf(rec.surname, "surname%d", i);
+        sprintf(rec.address, "address");
 
-    HT_InsertEntry(*info, rec);
+        HT_InsertEntry(*info, rec);
+    }
 
     HT_CloseIndex(info);
     

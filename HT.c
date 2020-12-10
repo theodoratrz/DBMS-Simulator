@@ -545,7 +545,7 @@ int HT_InsertEntry(HT_info header_info, Record record)
         }
         else
         {
-            target_bucket = (char*)current_block + hash_code - (block_counter*MAX_BUCKETS);
+            target_bucket = (int*)current_block + hash_code - (block_counter*MAX_BUCKETS);
             memcpy(&bucket_starting_block, target_bucket, sizeof(int));
 
             if (bucket_starting_block == -1)
