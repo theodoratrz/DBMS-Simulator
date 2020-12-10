@@ -85,6 +85,48 @@ void* GetLastRecord(void *block)
     return (char*)block + (GetBlockNumRecords(block) - 1)*RECORD_SIZE;
 }
 
+int RecordKeyHasValue(void *record, const char *key_name, void *value)
+{
+    Record *temp;
+
+    temp = GetRecord(record);
+    if ( strcmp(key_name, "id") == 0)
+    {
+        if ( memcmp( &(temp->id), value, sizeof(int) ) == 0 )
+        {
+            free(temp);
+            return 0;
+        }
+    }
+    else if ( strcmp(key_name, "name") == 0)
+    {
+        if ( strcmp(temp->name, value) == 0 )
+        {
+            free(temp);
+            return 0;
+        }
+    }
+    else if ( strcmp(key_name, "surname") == 0)
+    {
+        if ( strcmp(temp->surname, value) == 0 )
+        {
+            free(temp);
+            return 0;
+        }
+    }
+    else if ( strcmp(key_name, "address") == 0)
+    {
+        if ( strcmp(temp->address, value) == 0 )
+        {
+            free(temp);
+            return 0;
+        }
+    }
+    
+    free(temp);
+    return -1;
+}
+
 /* HT_info Functions */
 
 HT_info* Get_HT_info(int fd)
@@ -162,7 +204,17 @@ void delete_HT_info(HT_info *info)
 int NewRecordBlock(int fd)
 {
     if (BF_AllocateBlock(fd) < 0) { return -1; }
-    return BF_GetBlockCounter(fd) - 1;
+
+    int block_num = BF_GetBlockCounter(fd) - 1;
+    void *block;
+    if (BF_ReadBlock(fd, block_num, &block) < 0) { return -1; }
+
+    SetNextBlockNumber(block, -1);
+    SetNumRecords(block, 0);
+
+    if (BF_WriteBlock(fd, block_num) < 0) { return -1; }
+
+    return block_num;
 }
 
 int GetBlockNumRecords(void *block)
@@ -245,6 +297,27 @@ int InsertRecordtoBlock(int fd, int block_num, Record rec)
     }
 }
 
+int BlockHasRecordWithKey(void *block, const char* key_name, Record *rec)
+{
+    int num_records = GetBlockNumRecords(block);
+    if(num_records == 0) { return -1; }
+
+    int curr_record_num = 1;
+    void *curr_record;
+    curr_record = block;
+
+    while( curr_record_num <= num_records )
+    {
+        if (RecordKeyHasValue(curr_record, key_name, &(rec->id)) == 0)
+        {
+            return 0;
+        }
+        curr_record = NextRecord(curr_record);
+        curr_record_num++;
+    }
+    return -1;
+}
+
 /* Bucket-Block functions */
 
 void InitBuckets(void *block)
@@ -275,11 +348,69 @@ void SetBucket(void *current, int bn)
     memcpy(current, &bn, sizeof(int));
 }
 
-//TODO
-int InsertEntryToBucket(int starting_block_num, Record Record, const char *key_name)
-// Very similar to HP_InsertEntry...
+int InsertEntryToBucket(int fd, int starting_block_num, Record record, const char *key_name)
 {
+    void *current;
+    
+    int current_block_num = 0;
+    int next_block_num = starting_block_num;
+    int empty_block_found = 0;
+    int empty_block_num = -1;
+    int num_rec;
 
+    while(next_block_num != -1)
+    {
+        current_block_num = next_block_num;
+        if (BF_ReadBlock(fd, current_block_num, &current) < 0) { return -1; }
+        num_rec = GetBlockNumRecords(current);
+
+        if (num_rec == 0)
+        {
+            if ( !empty_block_found )
+            {
+                empty_block_num = current_block_num;
+                empty_block_found = 1;
+            }         
+        }
+        else
+        {
+            if ( num_rec < MAX_RECORDS )
+            {
+                if ( !empty_block_found )
+                {
+                    empty_block_num = current_block_num;
+                    empty_block_found = 1;
+                }
+            }
+            if (BlockHasRecordWithKey(current, key_name, &record) == 0)
+            {
+                return -1;
+            }
+        }
+        next_block_num = GetNextBlockNumber(current);
+    }
+
+    if ( !empty_block_found)
+    {
+        int new_block_num = AddNextBlock(fd, current_block_num); 
+        if (new_block_num < 0) { return -1; }
+
+        if (InsertRecordtoBlock(fd, new_block_num, record) == 0)
+        {
+            return new_block_num;
+        }
+        else
+        {
+            return -1;
+        }
+    }
+    else
+    {
+        if (InsertRecordtoBlock(fd, empty_block_num, record) == 0)
+        {
+            return empty_block_num;
+        }
+    }
 }
 
 /* More general HT functions */
@@ -430,7 +561,7 @@ int HT_InsertEntry(HT_info header_info, Record record)
                 if ( BF_WriteBlock(fd, current_block_num) < 0 ) { return -1; }
             }
 
-            return InsertEntryToBucket(bucket_starting_block, record, header_info.attrName);            
+            return InsertEntryToBucket(fd, bucket_starting_block, record, header_info.attrName);            
         }        
     }
     return -1;    

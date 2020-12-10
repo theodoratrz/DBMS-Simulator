@@ -62,7 +62,7 @@ void* GetNextBucket(void *current);
 
 void SetBucket(void *current, int bn);
 
-int InsertEntryToBucket(int starting_block_num, Record Record, const char *key_name);
+int InsertEntryToBucket(int fd, int starting_block_num, Record record, const char *key_name);
 
 /* Record-Block Functions -----------------------------------------------------*/
 
