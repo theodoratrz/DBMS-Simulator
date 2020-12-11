@@ -667,12 +667,12 @@ int HT_DeleteEntry(HT_info header_info, void *value)
     return -1;
 }
 
-int HT_CreateBuckets(int fd, int buckets)
+int HT_GetAllEntries(HT_info header_info, void *value)
 {
-
+    
 }
 
 int HashStatistics(char *filename)
 {
-    
+
 }

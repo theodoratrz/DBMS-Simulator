@@ -40,11 +40,11 @@ int HT_DeleteEntry(HT_info header_info, void *value);
 
 int HT_GetAllEntries(HT_info header_info, void *value);
 
+int HashStatistics(char *filename);
+
 int HT_InitFile(int fd, char type, const char *name, int length, unsigned long int bucket);
 
 int HT_CreateBuckets(int fd, int buckets);
-
-int HashStatistics(char *filename);
 
 /* HT_info functions -----------------------------------------------------*/
 
