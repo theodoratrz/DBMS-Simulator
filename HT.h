@@ -66,6 +66,8 @@ int InsertEntryToBucket(int fd, int starting_block_num, Record record, const cha
 
 int DeleteEntryFromBucket(int fd, int starting_block_num, void *key_value, const char *key_name);
 
+int GetAllBucketEntries(int fd, int starting_block_num, void *key_value, const char *key_name);
+
 /* Record-Block Functions -----------------------------------------------------*/
 
 int NewRecordBlock(int fd);
@@ -87,6 +89,8 @@ int InsertRecordtoBlock(int fd, int block_num, Record rec);
 int BlockHasRecordWithKey(void *block, const char* key_name, Record *rec);
 
 int DeleteRecordFromBlock(void *block, const char *key_name, void *value);
+
+int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value);
 
 /* Record Functions -----------------------------------------------------*/
 

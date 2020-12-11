@@ -1,3 +1,9 @@
+/*
+ * File: HP.h
+ * Pavlos Spanoudakis (sdi1800184)
+ * Theodora Troizi (sdi1800197)
+ */
+
 #ifndef HP_H
 #define HP_H
 

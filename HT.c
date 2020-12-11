@@ -1,3 +1,9 @@
+/*
+ * File: HT.c
+ * Pavlos Spanoudakis (sdi1800184)
+ * Theodora Troizi (sdi1800197)
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -344,6 +350,36 @@ int DeleteRecordFromBlock(void *block, const char *key_name, void *value)
     }
 }
 
+int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value)
+{
+    int num_records = GetBlockNumRecords(block);
+    if(num_records == 0) { return -1; }
+    int found_records = 0;
+
+    int curr_record_num = 1;
+
+    void *curr_record;
+    curr_record = block;
+    Record *record;
+
+    while( curr_record_num <= num_records )
+    {
+        if (RecordKeyHasValue(curr_record, key_name, value) == 0)
+        {
+            record = GetRecord(curr_record);
+            PrintRecord(*record);
+            found_records++;
+            free(record);
+        }
+        curr_record = NextRecord(curr_record);
+        curr_record_num++;
+    }
+
+    if (found_records) { return 0; }
+    
+    return -1;
+}
+
 /* Bucket-Block functions */
 
 void InitBuckets(void *block)
@@ -464,6 +500,33 @@ int DeleteEntryFromBucket(int fd, int starting_block_num, void *key_value, const
 
     // The entry was not deleted, so it was not found
     return -1;
+}
+
+int GetAllBucketEntries(int fd, int starting_block_num, void *key_value, const char *key_name)
+{
+    void *curr_block;
+
+    int curr_block_num = starting_block_num;
+    int read_blocks_until_rec = 0;
+    int blocks_from_last_rec = 1;
+
+    while(curr_block_num != -1)
+    {
+        if (BF_ReadBlock(fd, curr_block_num, &curr_block) < 0 ) { return -1; }
+
+        if (PrintBlockRecordsWithKey(curr_block, key_name, key_value) == 0)
+        {
+            read_blocks_until_rec += blocks_from_last_rec;
+            blocks_from_last_rec = 1;
+        }
+        else
+        {
+            blocks_from_last_rec++;
+        }
+
+        curr_block_num = GetNextBlockNumber(curr_block);
+    }
+    return read_blocks_until_rec;
 }
 
 /* More general HT functions */
@@ -598,6 +661,7 @@ int HT_InsertEntry(HT_info header_info, Record record)
         }
         else
         {
+            // Finding the relative hash code (in the target block)
             target_bucket = (int*)current_block + hash_code - (block_counter*MAX_BUCKETS);
             memcpy(&bucket_starting_block, target_bucket, sizeof(int));
 
@@ -650,7 +714,9 @@ int HT_DeleteEntry(HT_info header_info, void *value)
         }
         else
         {
+            // Finding the relative hash code (in the target block)
             target_bucket = (int*)current_block + hash_code - (block_counter*MAX_BUCKETS);
+
             memcpy(&bucket_starting_block, target_bucket, sizeof(int));
 
             if (bucket_starting_block == -1)
@@ -669,7 +735,84 @@ int HT_DeleteEntry(HT_info header_info, void *value)
 
 int HT_GetAllEntries(HT_info header_info, void *value)
 {
+    int fd = header_info.fileDesc;
+    void *current_block;
     
+    if (BF_ReadBlock(fd, 0, &current_block) < -1) { return -1; }
+
+    int current_block_num = GetNextBlockNumber(current_block);
+
+    int bucket_starting_block;
+
+    // Counts total read blocks
+    int block_counter = 0;
+    int *current_bucket;
+    int bucket_counter;
+
+    // Iterating over the Hash Table blocks (indexes)
+    while (current_block_num != -1)
+    {
+        if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
+        
+        // Iterating over the buckets of this block
+        bucket_counter = 0;
+        while (bucket_counter < MAX_BUCKETS)
+        {
+            current_bucket = (int*)current_block + bucket_counter;
+            if ( *current_bucket != -1 )
+            {
+                block_counter += GetAllBucketEntries(fd, *current_bucket, value, header_info.attrName);
+            }
+        }
+
+        block_counter++;
+        current_block_num = GetNextBlockNumber(current_block);
+    }
+
+    return block_counter;
+}
+
+int HT_GetUniqueEntry(HT_info header_info, void *value)
+{
+    int fd = header_info.fileDesc;
+    void *current_block;
+    
+    if (BF_ReadBlock(fd, 0, &current_block) < -1) { return -1; }
+
+    int current_block_num = GetNextBlockNumber(current_block);
+
+    // Could take advantage of header_info.attrType here as well...
+    int hash_code = GetHashcode(*((int*)value), header_info.numBuckets);    
+    int target_block = hash_code / MAX_BUCKETS;
+    int *target_bucket;
+    int block_counter = 0;
+
+    while (current_block_num != -1)
+    {
+        if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
+
+        if (block_counter != target_block)
+        {
+            block_counter++;
+            current_block_num = GetNextBlockNumber(current_block);
+        }
+        else
+        {
+            target_bucket = (int*)current_block + hash_code - (block_counter*MAX_BUCKETS);
+
+            if (*target_bucket == -1)
+            // Bucket Empty, so nothing to search here
+            {
+                return -1;
+            }
+            else
+            {
+                return block_counter + GetAllBucketEntries(fd, *target_bucket, value, header_info.attrName);
+            }
+        }        
+    }
+
+    return block_counter;
 }
 
 int HashStatistics(char *filename)

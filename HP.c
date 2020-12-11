@@ -1,3 +1,9 @@
+/*
+ * File: HP.c
+ * Pavlos Spanoudakis (sdi1800184)
+ * Theodora Troizi (sdi1800197)
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
