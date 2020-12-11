@@ -320,7 +320,7 @@ int BlockHasRecordWithKey(void *block, const char* key_name, Record *rec)
 
 int DeleteRecordFromBlock(void *block, const char *key_name, void *value)
 {
-    int num_records = HP_GetNumRecords(block);
+    int num_records = GetNumRecords(block);
     if(num_records == 0) { return -1; }
 
     int curr_record_num = 1;
@@ -329,14 +329,14 @@ int DeleteRecordFromBlock(void *block, const char *key_name, void *value)
 
     while( curr_record_num <= num_records )
     {
-        if (HP_RecordKeyHasValue(curr_record, key_name, value) == 0)
+        if (RecordKeyHasValue(curr_record, key_name, value) == 0)
         {
             // Delete record (replace with last etc.)
             if (curr_record_num!= num_records)
             {
                 CopyRecord(curr_record, GetLastRecord(block));
             }
-            HP_SetNumRecords(block, num_records -1);
+            SetNumRecords(block, num_records -1);
             return 0;
         }
         curr_record = NextRecord(curr_record);
@@ -440,10 +440,30 @@ int InsertEntryToBucket(int fd, int starting_block_num, Record record, const cha
 }
 
 int DeleteEntryFromBucket(int fd, int starting_block_num, void *key_value, const char *key_name)
-// TODO
-// Very similar to HP_DeleteEntry...
 {
+    void *current;    
+    int current_block_num = starting_block_num;
+    int num_rec;
 
+    while(current_block_num != -1)
+    {
+        if (BF_ReadBlock(fd, current_block_num, &current) < 0) { return -1; }
+        num_rec = GetBlockNumRecords(current);
+
+        if (num_rec != 0)
+        {
+            if (DeleteRecordFromBlock(current, key_name, key_value) == 0)
+            // Record Deleted
+            {
+                if (BF_WriteBlock(fd, current_block_num) < 0) { return -1; }
+                return 0;
+            }
+        }
+        current_block_num = GetNextBlockNumber(current);
+    }
+
+    // The entry was not deleted, so it was not found
+    return -1;
 }
 
 /* More general HT functions */
@@ -634,7 +654,7 @@ int HT_DeleteEntry(HT_info header_info, void *value)
             memcpy(&bucket_starting_block, target_bucket, sizeof(int));
 
             if (bucket_starting_block == -1)
-            // Bucket Empty
+            // Bucket Empty, so nothing to delete
             {
                 return -1;
             }
