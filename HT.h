@@ -28,7 +28,7 @@ typedef struct{
     char address[50];
 } Record;
 
-int HT_CreateIndex(char *fileName, char attrType, char* attrName,int attrLength, int buckets);
+int HT_CreateIndex(char *fileName, char attrType, char* attrName, int attrLength, int buckets);
 
 HT_info* HT_OpenIndex(char *fileName);
 
