@@ -25,7 +25,12 @@ int main(void)
         sprintf(rec.address, "address%d", i);
 
         HT_InsertEntry(*info, rec);
-    }    
+    }
+
+    for (i = 5000; i < 10000; i++)
+    {
+        HT_DeleteEntry(*info, &i);
+    }
 
     for (i = 0; i < limit; i ++)
     {
