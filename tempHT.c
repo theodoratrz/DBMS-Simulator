@@ -9,7 +9,7 @@ int main(void)
 {
     char *fileName = "file";
     int i;
-    int limit = 16000;
+    int limit = 15000;
     BF_Init();
 
     HT_CreateIndex(fileName, 'i', "id", 4, 10000);
