@@ -133,6 +133,11 @@ int RecordKeyHasValue(void *record, const char *key_name, void *value)
     return -1;
 }
 
+void PrintRecord(Record rec)
+{
+    printf("{ %d, %s, %s, %s }\n", rec.id, rec.name, rec.surname, rec.address);
+}
+
 /* HT_info Functions */
 
 HT_info* Get_HT_info(int fd)
@@ -564,7 +569,7 @@ int HT_InitFile(int fd, char type, const char *name, int length, unsigned long i
 
 int HT_CreateBuckets(int fd, int buckets)
 {
-    int nof_blocks = (buckets / BLOCK_SIZE) + 1;
+    int nof_blocks = (buckets / MAX_BUCKETS) + 1;
 
     void *curr_block;
     int block_counter = 0;
@@ -763,6 +768,7 @@ int HT_GetAllEntries(HT_info header_info, void *value)
             {
                 block_counter += GetAllBucketEntries(fd, *current_bucket, value, header_info.attrName);
             }
+            bucket_counter ++;
         }
 
         block_counter++;

@@ -46,6 +46,8 @@ int HT_InitFile(int fd, char type, const char *name, int length, unsigned long i
 
 int HT_CreateBuckets(int fd, int buckets);
 
+int HT_GetUniqueEntry(HT_info header_info, void *value);
+
 /* HT_info functions -----------------------------------------------------*/
 
 void delete_HT_info(HT_info *info);
@@ -103,6 +105,10 @@ void CopyRecord(void *dest, void *src);
 void* NextRecord(void *current);
 
 void* GetLastRecord(void *block);
+
+int RecordKeyHasValue(void *record, const char *key_name, void *value);
+
+void PrintRecord(Record rec);
 
 /* The Hash function used by HT. */
 int GetHashcode(int id, unsigned long mod);
