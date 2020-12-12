@@ -9,14 +9,15 @@ int main(void)
 {
     char *fileName = "file";
     int i;
+    int limit = 16000;
     BF_Init();
 
-    HT_CreateIndex(fileName, 'i', "id", 4, 10);
+    HT_CreateIndex(fileName, 'i', "id", 4, 10000);
 
     HT_info *info = HT_OpenIndex(fileName);
 
     Record rec;
-    for (i = 66; i < 70; i++)
+    for (i = 0; i < limit; i++)
     {
         rec.id = i;
         sprintf(rec.name, "name%d", i);
@@ -24,39 +25,12 @@ int main(void)
         sprintf(rec.address, "address%d", i);
 
         HT_InsertEntry(*info, rec);
-    }
+    }    
 
-    i = 68;
-    HT_DeleteEntry(*info, &i);
-    i = 70;
-    rec.id = i;
-    sprintf(rec.name, "name%d", i);
-    sprintf(rec.surname, "surname%d", i);
-    sprintf(rec.address, "address%d", i);
-    HT_InsertEntry(*info, rec);
-
-    i = 68;
-    rec.id = i;
-    sprintf(rec.name, "name%d", i);
-    sprintf(rec.surname, "surname%d", i);
-    sprintf(rec.address, "address%d", i);
-    HT_InsertEntry(*info, rec);
-
-    for (int i = 71; i < 77; i++)
+    for (i = 0; i < limit; i ++)
     {
-        rec.id = i;
-        sprintf(rec.name, "name%d", i);
-        sprintf(rec.surname, "surname%d", i);
-        sprintf(rec.address, "address%d", i);
-
-        HT_InsertEntry(*info, rec);
+        HT_GetUniqueEntry(*info, &i);
     }
-    i = 66;
-    HT_DeleteEntry(*info, &i);
-    i = 68;
-    HT_DeleteEntry(*info, &i);
-    i = 70;
-    HT_DeleteEntry(*info, &i);
 
     HT_CloseIndex(info);
     
