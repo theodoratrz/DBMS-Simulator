@@ -14,7 +14,7 @@ int main(void)
     HP_info *info = HP_OpenFile(fileName);
     Record rec;
 
-    for (int i = 0; i < 205; i++)
+    for (int i = 0; i < 10000; i++)
     {
         rec.id = i;
         sprintf(rec.name, "name%d", i);
@@ -23,17 +23,24 @@ int main(void)
         HP_InsertEntry(*info, rec);
     }
 
-    free(info->attrName);
-    info->attrName = malloc(strlen("address") + 1 );
-    strcpy(info->attrName, "address");
-    int n;
-    n =  HP_GetAllEntries(*info, "address");
-    
-    printf("%d\n", n);
+    for (int i = 5000; i < 10000; i++)
+    {
+        HP_DeleteEntry(*info, &i);
+    }
 
-    n =  HP_GetAllEntries(*info, "address");
-    
-    printf("%d\n", n);
+    for (int i = 10000; i < 15000; i++)
+    {
+        rec.id = i;
+        sprintf(rec.name, "name%d", i);
+        sprintf(rec.surname, "surname%d", i);
+        sprintf(rec.address, "address");
+        HP_InsertEntry(*info, rec);
+    }
+
+    for (int i = 0; i < 15000; i++)
+    {
+        HP_GetAllEntries(*info, &i);
+    }
     
     if (HP_CloseFile(info) < 0) {return 1;}
     
