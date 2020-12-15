@@ -9,13 +9,14 @@ int main(void)
 {
     char *fileName = "file";
     int i;
-    int limit = 15000;
+    int limit = 5000;
     BF_Init();
 
     HT_CreateIndex(fileName, 'i', "id", 4, 10000);
 
     HT_info *info = HT_OpenIndex(fileName);
 
+    
     Record rec;
     for (i = 0; i < limit; i++)
     {
@@ -26,16 +27,20 @@ int main(void)
 
         HT_InsertEntry(*info, rec);
     }
-
+    
+    /*
     for (i = 5000; i < 10000; i++)
     {
         HT_DeleteEntry(*info, &i);
     }
-
+    */
+    /*
     for (i = 0; i < limit; i ++)
     {
         HT_GetUniqueEntry(*info, &i);
     }
+    */
+    HT_GetAllEntries(*info, NULL);
 
     HT_CloseIndex(info);
     

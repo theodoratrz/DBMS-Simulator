@@ -480,17 +480,32 @@ int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value)
     curr_record = block;
     Record *record;
 
-    while( curr_record_num <= num_records )
+    if (value == NULL)
     {
-        if (HP_RecordKeyHasValue(curr_record, key_name, value) == 0)
+        while( curr_record_num <= num_records )
         {
             record = GetRecord(curr_record);
             PrintRecord(*record);
             found_records++;
             free(record);
+            curr_record = NextRecord(curr_record);
+            curr_record_num++;
         }
-        curr_record = NextRecord(curr_record);
-        curr_record_num++;
+    }
+    else
+    {
+        while( curr_record_num <= num_records )
+        {
+            if (HP_RecordKeyHasValue(curr_record, key_name, value) == 0)
+            {
+                record = GetRecord(curr_record);
+                PrintRecord(*record);
+                found_records++;
+                free(record);
+            }
+            curr_record = NextRecord(curr_record);
+            curr_record_num++;
+        }
     }
 
     if (found_records) { return 0; }

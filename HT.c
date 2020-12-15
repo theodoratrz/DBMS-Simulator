@@ -367,19 +367,33 @@ int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value)
     curr_record = block;
     Record *record;
 
-    while( curr_record_num <= num_records )
+    if (value == NULL)
     {
-        if (RecordKeyHasValue(curr_record, key_name, value) == 0)
+        while( curr_record_num <= num_records )
         {
             record = GetRecord(curr_record);
             PrintRecord(*record);
             found_records++;
             free(record);
+            curr_record = NextRecord(curr_record);
+            curr_record_num++;
         }
-        curr_record = NextRecord(curr_record);
-        curr_record_num++;
     }
-
+    else
+    {
+        while( curr_record_num <= num_records )
+        {
+            if (RecordKeyHasValue(curr_record, key_name, value) == 0)
+            {
+                record = GetRecord(curr_record);
+                PrintRecord(*record);
+                found_records++;
+                free(record);
+            }
+            curr_record = NextRecord(curr_record);
+            curr_record_num++;
+        }
+    }
     if (found_records) { return 0; }
     
     return -1;
@@ -758,19 +772,22 @@ int HT_GetAllEntries(HT_info header_info, void *value)
     while (current_block_num != -1)
     {
         if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
-        
         // Iterating over the buckets of this block
+        /*
         bucket_counter = 0;
+        current_bucket = current_block;
         while (bucket_counter < MAX_BUCKETS)
         {
-            current_bucket = (int*)current_block + bucket_counter;
+            //current_bucket = (int*)current_block + bucket_counter;
             if ( *current_bucket != -1 )
             {
+                printf("oops\n");
                 block_counter += GetAllBucketEntries(fd, *current_bucket, value, header_info.attrName);
             }
-            bucket_counter ++;
+            bucket_counter++;
+            current_bucket = GetNextBucket(current_bucket);
         }
-
+        */
         block_counter++;
         current_block_num = GetNextBlockNumber(current_block);
     }

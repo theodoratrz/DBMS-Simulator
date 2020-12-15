@@ -37,10 +37,13 @@ int main(void)
         HP_InsertEntry(*info, rec);
     }
 
+    /*
     for (int i = 0; i < 15000; i++)
     {
         HP_GetAllEntries(*info, &i);
     }
+    */
+    HP_GetAllEntries(*info, NULL); 
     
     if (HP_CloseFile(info) < 0) {return 1;}
     
