@@ -773,21 +773,19 @@ int HT_GetAllEntries(HT_info header_info, void *value)
     {
         if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
         // Iterating over the buckets of this block
-        /*
         bucket_counter = 0;
-        current_bucket = current_block;
         while (bucket_counter < MAX_BUCKETS)
         {
-            //current_bucket = (int*)current_block + bucket_counter;
+            // Without this, current_block is reset at some point and the functionality totally breaks
+            if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
+
+            current_bucket = (int*)current_block + bucket_counter;
             if ( *current_bucket != -1 )
             {
-                printf("oops\n");
                 block_counter += GetAllBucketEntries(fd, *current_bucket, value, header_info.attrName);
             }
             bucket_counter++;
-            current_bucket = GetNextBucket(current_bucket);
         }
-        */
         block_counter++;
         current_block_num = GetNextBlockNumber(current_block);
     }
