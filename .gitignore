@@ -3,7 +3,8 @@
 !HT.c
 !HP.h
 !HP.c
-!temp.c
+!tempHT.c
+!tempHP.c
 
 *.o
 *.a

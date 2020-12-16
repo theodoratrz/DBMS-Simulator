@@ -1,9 +1,37 @@
+/*
+ * File: HT.c
+ * Pavlos Spanoudakis (sdi1800184)
+ * Theodora Troizi (sdi1800197)
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <openssl/sha.h>
 
 #include "BF.h"
 #include "HT.h"
+
+/* The Hash function used by HT. Uses SHA1. */
+int GetHashcode(int id, unsigned long int mod)
+{
+    int result;
+    char *data = (char*)&id;
+    char *hash = malloc(sizeof(SHA_DIGEST_LENGTH));
+    unsigned long int hash_num;
+
+    SHA1(data, 4, hash);
+
+    memcpy(&hash_num, hash, sizeof(unsigned long int));
+
+    free(hash);
+
+    hash_num = hash_num % mod;
+    result = hash_num;
+    return result;
+}
+
+/* Record Functions */
 
 Record* GetRecord(const void *data)
 {
@@ -48,13 +76,77 @@ void* GetRecordData(const Record *rec)
     return data;
 }
 
+void CopyRecord(void *dest, void *src)
+{
+    memcpy(dest, src, RECORD_SIZE);
+}
+
+void* NextRecord(void *current)
+{
+    return (char*)current + RECORD_SIZE;
+}
+
+void* GetLastRecord(void *block)
+{
+    return (char*)block + (GetBlockNumRecords(block) - 1)*RECORD_SIZE;
+}
+
+int RecordKeyHasValue(void *record, const char *key_name, void *value)
+{
+    Record *temp;
+
+    temp = GetRecord(record);
+    if ( strcmp(key_name, "id") == 0)
+    {
+        if ( memcmp( &(temp->id), value, sizeof(int) ) == 0 )
+        {
+            free(temp);
+            return 0;
+        }
+    }
+    else if ( strcmp(key_name, "name") == 0)
+    {
+        if ( strcmp(temp->name, value) == 0 )
+        {
+            free(temp);
+            return 0;
+        }
+    }
+    else if ( strcmp(key_name, "surname") == 0)
+    {
+        if ( strcmp(temp->surname, value) == 0 )
+        {
+            free(temp);
+            return 0;
+        }
+    }
+    else if ( strcmp(key_name, "address") == 0)
+    {
+        if ( strcmp(temp->address, value) == 0 )
+        {
+            free(temp);
+            return 0;
+        }
+    }
+    
+    free(temp);
+    return -1;
+}
+
+void PrintRecord(Record rec)
+{
+    printf("{ %d, %s, %s, %s }\n", rec.id, rec.name, rec.surname, rec.address);
+}
+
+/* HT_info Functions */
+
 HT_info* Get_HT_info(int fd)
 {
     void *block;
     if (BF_ReadBlock(fd, 0, &block) < 0) { return NULL; }
 
     if (memcmp(block, "hash", strlen("hash") + 1) != 0)
-    // Return fail if this is not a heap file
+    // Return fail if this is not a hash file
     {
         return NULL;
     }
@@ -80,18 +172,6 @@ HT_info* Get_HT_info(int fd)
     memcpy(&(info->numBuckets), temp, sizeof(unsigned long int));
 
     return info;
-}
-
-void SetNextBlockNumber(void *current, int num)
-{
-    memcpy((char*)current + BLOCK_SIZE - sizeof(int), &num, sizeof(int) );
-}
-
-int GetNextBlockNumber(void *current)
-{
-    int next;
-    memcpy(&next, (char*)current + BLOCK_SIZE - sizeof(int), sizeof(int) );
-    return next;
 }
 
 void* Get_HT_info_Data(const HT_info *info)
@@ -124,6 +204,352 @@ void* Get_HT_info_Data(const HT_info *info)
     return data;
 }
 
+void delete_HT_info(HT_info *info)
+{
+    free(info->attrName);
+    free(info);
+}
+
+/* Record-Block Functions */
+
+int NewRecordBlock(int fd)
+{
+    if (BF_AllocateBlock(fd) < 0) { return -1; }
+
+    int block_num = BF_GetBlockCounter(fd) - 1;
+    void *block;
+    if (BF_ReadBlock(fd, block_num, &block) < 0) { return -1; }
+
+    SetNextBlockNumber(block, -1);
+    SetNumRecords(block, 0);
+
+    if (BF_WriteBlock(fd, block_num) < 0) { return -1; }
+
+    return block_num;
+}
+
+int GetBlockNumRecords(void *block)
+{
+    int num;
+    memcpy(&num, (char*)block + BLOCK_SIZE - 2*sizeof(int), sizeof(int));
+    return num;
+}
+
+void SetNextBlockNumber(void *current, int num)
+{
+    memcpy((char*)current + BLOCK_SIZE - sizeof(int), &num, sizeof(int) );
+}
+
+int GetNextBlockNumber(void *current)
+{
+    int next;
+    memcpy(&next, (char*)current + BLOCK_SIZE - sizeof(int), sizeof(int) );
+    return next;
+}
+
+int GetNumRecords(void *block)
+{
+    int num;
+    memcpy(&num, (char*)block + BLOCK_SIZE - 2*sizeof(int), sizeof(int));
+    return num;
+}
+
+void SetNumRecords(void *block, int n)
+{
+    memcpy( (char*)block + BLOCK_SIZE - 2*sizeof(int), &n, sizeof(int) );
+}
+
+int AddNextBlock(int fd, int current_num)
+{
+    void *current, *new;
+    int new_num;
+
+    if (BF_ReadBlock(fd, current_num, &current) < 0) { return -1; }
+
+    if (BF_AllocateBlock(fd) < 0) { return -1; }
+
+    if ( (new_num = BF_GetBlockCounter(fd) - 1) < -1  ) { return -1; }
+
+    SetNextBlockNumber(current, new_num);
+
+    BF_WriteBlock(fd, current_num);
+
+    if (BF_ReadBlock(fd, new_num, &new) < 0) { return -1; }
+    SetNumRecords(new, 0);
+    SetNextBlockNumber(new, -1);
+
+    BF_WriteBlock(fd, new_num);
+
+    return new_num;
+}
+
+int InsertRecordtoBlock(int fd, int block_num, Record rec)
+{
+    void *block;
+
+    if (BF_ReadBlock(fd, block_num, &block) < 0) { return -1; }
+    int num_records = GetNumRecords(block);
+
+    if( num_records < MAX_RECORDS)
+    {
+        void* data = GetRecordData(&rec);
+
+        memcpy( (char*)block + num_records*RECORD_SIZE, data, RECORD_SIZE );
+        free(data);     // this won't be needed anymore
+
+        SetNumRecords(block, num_records + 1);
+        if (BF_WriteBlock(fd, block_num) < 0){ return -1; }
+
+        return 0;
+    }
+    else
+    {
+        return -1;
+    }
+}
+
+int BlockHasRecordWithKey(void *block, const char* key_name, Record *rec)
+{
+    int num_records = GetBlockNumRecords(block);
+    if(num_records == 0) { return -1; }
+
+    int curr_record_num = 1;
+    void *curr_record;
+    curr_record = block;
+
+    while( curr_record_num <= num_records )
+    {
+        if (RecordKeyHasValue(curr_record, key_name, &(rec->id)) == 0)
+        {
+            return 0;
+        }
+        curr_record = NextRecord(curr_record);
+        curr_record_num++;
+    }
+    return -1;
+}
+
+int DeleteRecordFromBlock(void *block, const char *key_name, void *value)
+{
+    int num_records = GetNumRecords(block);
+    if(num_records == 0) { return -1; }
+
+    int curr_record_num = 1;
+    void *curr_record;
+    curr_record = block;
+
+    while( curr_record_num <= num_records )
+    {
+        if (RecordKeyHasValue(curr_record, key_name, value) == 0)
+        {
+            // Delete record (replace with last etc.)
+            if (curr_record_num!= num_records)
+            {
+                CopyRecord(curr_record, GetLastRecord(block));
+            }
+            SetNumRecords(block, num_records -1);
+            return 0;
+        }
+        curr_record = NextRecord(curr_record);
+        curr_record_num++;
+    }
+}
+
+int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value)
+{
+    int num_records = GetBlockNumRecords(block);
+    if(num_records == 0) { return -1; }
+    int found_records = 0;
+
+    int curr_record_num = 1;
+
+    void *curr_record;
+    curr_record = block;
+    Record *record;
+
+    if (value == NULL)
+    {
+        while( curr_record_num <= num_records )
+        {
+            record = GetRecord(curr_record);
+            PrintRecord(*record);
+            found_records++;
+            free(record);
+            curr_record = NextRecord(curr_record);
+            curr_record_num++;
+        }
+    }
+    else
+    {
+        while( curr_record_num <= num_records )
+        {
+            if (RecordKeyHasValue(curr_record, key_name, value) == 0)
+            {
+                record = GetRecord(curr_record);
+                PrintRecord(*record);
+                found_records++;
+                free(record);
+            }
+            curr_record = NextRecord(curr_record);
+            curr_record_num++;
+        }
+    }
+    if (found_records) { return 0; }
+    
+    return -1;
+}
+
+/* Bucket-Block functions */
+
+void InitBuckets(void *block)
+{
+    int num_buckets = 0;
+    void *temp = block;
+    int init_value = -1;
+
+    while (num_buckets < MAX_BUCKETS)
+    {
+        //memcpy(temp, &init_value, sizeof(int));
+        //temp = (int*)temp + 1;
+
+        SetBucket(temp, init_value);
+        temp = GetNextBucket(temp);
+
+        num_buckets++;
+    }
+}
+
+void* GetNextBucket(void *current)
+{
+    return (int*)current + 1;
+}
+
+void SetBucket(void *current, int bn)
+{
+    memcpy(current, &bn, sizeof(int));
+}
+
+int InsertEntryToBucket(int fd, int starting_block_num, Record record, const char *key_name)
+{
+    void *current;
+    
+    int current_block_num = 0;
+    int next_block_num = starting_block_num;
+    int empty_block_found = 0;
+    int empty_block_num = -1;
+    int num_rec;
+
+    while(next_block_num != -1)
+    {
+        current_block_num = next_block_num;
+        if (BF_ReadBlock(fd, current_block_num, &current) < 0) { return -1; }
+        num_rec = GetBlockNumRecords(current);
+
+        if (num_rec == 0)
+        {
+            if ( !empty_block_found )
+            {
+                empty_block_num = current_block_num;
+                empty_block_found = 1;
+            }         
+        }
+        else
+        {
+            if ( num_rec < MAX_RECORDS )
+            {
+                if ( !empty_block_found )
+                {
+                    empty_block_num = current_block_num;
+                    empty_block_found = 1;
+                }
+            }
+            if (BlockHasRecordWithKey(current, key_name, &record) == 0)
+            {
+                return -1;
+            }
+        }
+        next_block_num = GetNextBlockNumber(current);
+    }
+
+    if ( !empty_block_found)
+    {
+        int new_block_num = AddNextBlock(fd, current_block_num); 
+        if (new_block_num < 0) { return -1; }
+
+        if (InsertRecordtoBlock(fd, new_block_num, record) == 0)
+        {
+            return new_block_num;
+        }
+        else
+        {
+            return -1;
+        }
+    }
+    else
+    {
+        if (InsertRecordtoBlock(fd, empty_block_num, record) == 0)
+        {
+            return empty_block_num;
+        }
+    }
+}
+
+int DeleteEntryFromBucket(int fd, int starting_block_num, void *key_value, const char *key_name)
+{
+    void *current;    
+    int current_block_num = starting_block_num;
+    int num_rec;
+
+    while(current_block_num != -1)
+    {
+        if (BF_ReadBlock(fd, current_block_num, &current) < 0) { return -1; }
+        num_rec = GetBlockNumRecords(current);
+
+        if (num_rec != 0)
+        {
+            if (DeleteRecordFromBlock(current, key_name, key_value) == 0)
+            // Record Deleted
+            {
+                if (BF_WriteBlock(fd, current_block_num) < 0) { return -1; }
+                return 0;
+            }
+        }
+        current_block_num = GetNextBlockNumber(current);
+    }
+
+    // The entry was not deleted, so it was not found
+    return -1;
+}
+
+int GetAllBucketEntries(int fd, int starting_block_num, void *key_value, const char *key_name)
+{
+    void *curr_block;
+
+    int curr_block_num = starting_block_num;
+    int read_blocks_until_rec = 0;
+    int blocks_from_last_rec = 1;
+
+    while(curr_block_num != -1)
+    {
+        if (BF_ReadBlock(fd, curr_block_num, &curr_block) < 0 ) { return -1; }
+
+        if (PrintBlockRecordsWithKey(curr_block, key_name, key_value) == 0)
+        {
+            read_blocks_until_rec += blocks_from_last_rec;
+            blocks_from_last_rec = 1;
+        }
+        else
+        {
+            blocks_from_last_rec++;
+        }
+
+        curr_block_num = GetNextBlockNumber(curr_block);
+    }
+    return read_blocks_until_rec;
+}
+
+/* More general HT functions */
+
 int HT_InitFile(int fd, char type, const char *name, int length, unsigned long int buckets)
 {
     void* block;
@@ -155,23 +581,9 @@ int HT_InitFile(int fd, char type, const char *name, int length, unsigned long i
     return 0;
 }
 
-void InitBuckets(void *block)
-{
-    int num_buckets = 0;
-    void *temp = block;
-    int init_value = -1;
-
-    while (num_buckets < MAX_BUCKETS)
-    {
-        memcpy(temp, &init_value, sizeof(int));
-        temp = (int*)temp + 1;
-        num_buckets++;
-    }
-}
-
 int HT_CreateBuckets(int fd, int buckets)
 {
-    int nof_blocks = (buckets / BLOCK_SIZE) + 1;
+    int nof_blocks = (buckets / MAX_BUCKETS) + 1;
 
     void *curr_block;
     int block_counter = 0;
@@ -216,4 +628,215 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
     if (BF_CloseFile(fd) < 0) { return -1; }
     
     return 0;
+}
+
+HT_info* HT_OpenIndex(char *fileName)
+{
+    HT_info *info;
+    int fd;
+
+    if ( (fd = BF_OpenFile(fileName)) < 0) { return NULL; }
+
+    info = Get_HT_info(fd);
+
+    return info;
+}
+
+int HT_CloseIndex(HT_info *header_info)
+{
+    if (header_info == NULL) { return -1; }
+
+    if (BF_CloseFile(header_info->fileDesc) < 0) { return -1; }
+
+    delete_HT_info(header_info);
+    return 0;
+}
+
+int HT_InsertEntry(HT_info header_info, Record record)
+{
+    int fd = header_info.fileDesc;
+    void *current_block;
+    
+    if (BF_ReadBlock(fd, 0, &current_block) < -1) { return -1; }
+
+    int current_block_num = 0;
+    int next_block_num = GetNextBlockNumber(current_block);
+
+    int hash_code = GetHashcode(record.id, header_info.numBuckets);
+    int target_block = hash_code / MAX_BUCKETS;
+    void *target_bucket;
+    int bucket_starting_block;
+    int block_counter = 0;
+
+    while (next_block_num != -1)
+    {
+        current_block_num = next_block_num;
+        if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
+
+        if (block_counter != target_block)
+        {
+            block_counter++;
+            next_block_num = GetNextBlockNumber(current_block);
+        }
+        else
+        {
+            // Finding the relative hash code (in the target block)
+            target_bucket = (int*)current_block + hash_code - (block_counter*MAX_BUCKETS);
+            memcpy(&bucket_starting_block, target_bucket, sizeof(int));
+
+            if (bucket_starting_block == -1)
+            // Bucket Empty
+            {
+                // Create new block
+                bucket_starting_block = NewRecordBlock(fd);
+
+                if (bucket_starting_block == -1) { return -1; }
+                // Make the bucket point to the new block
+                SetBucket(target_bucket, bucket_starting_block);
+                //memcpy(target_bucket, &bucket_starting_block, sizeof(int));
+                if ( BF_WriteBlock(fd, current_block_num) < 0 ) { return -1; }
+            }
+
+            return InsertEntryToBucket(fd, bucket_starting_block, record, header_info.attrName);            
+        }        
+    }
+    return -1;    
+}
+
+int HT_DeleteEntry(HT_info header_info, void *value)
+{
+    int fd = header_info.fileDesc;
+    void *current_block;
+    
+    if (BF_ReadBlock(fd, 0, &current_block) < -1) { return -1; }
+
+    int current_block_num = 0;
+    int next_block_num = GetNextBlockNumber(current_block);
+
+    // Could take advantage of header_info.attrType here as well...
+    int hash_code = GetHashcode(*((int*)value), header_info.numBuckets);
+    
+    int target_block = hash_code / MAX_BUCKETS;
+    void *target_bucket;
+    int bucket_starting_block;
+    int block_counter = 0;
+
+    while (next_block_num != -1)
+    {
+        current_block_num = next_block_num;
+        if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
+
+        if (block_counter != target_block)
+        {
+            block_counter++;
+            next_block_num = GetNextBlockNumber(current_block);
+        }
+        else
+        {
+            // Finding the relative hash code (in the target block)
+            target_bucket = (int*)current_block + hash_code - (block_counter*MAX_BUCKETS);
+
+            memcpy(&bucket_starting_block, target_bucket, sizeof(int));
+
+            if (bucket_starting_block == -1)
+            // Bucket Empty, so nothing to delete
+            {
+                return -1;
+            }
+            else
+            {
+                return DeleteEntryFromBucket(fd, bucket_starting_block, value, header_info.attrName);
+            }
+        }        
+    }
+    return -1;
+}
+
+int HT_GetAllEntries(HT_info header_info, void *value)
+{
+    int fd = header_info.fileDesc;
+    void *current_block;
+    
+    if (BF_ReadBlock(fd, 0, &current_block) < -1) { return -1; }
+
+    int current_block_num = GetNextBlockNumber(current_block);
+
+    int bucket_starting_block;
+
+    // Counts total read blocks
+    int block_counter = 0;
+    int *current_bucket;
+    int bucket_counter;
+
+    // Iterating over the Hash Table blocks (indexes)
+    while (current_block_num != -1)
+    {
+        if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
+        // Iterating over the buckets of this block
+        bucket_counter = 0;
+        while (bucket_counter < MAX_BUCKETS)
+        {
+            // Without this, current_block is reset at some point and the functionality totally breaks
+            if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
+
+            current_bucket = (int*)current_block + bucket_counter;
+            if ( *current_bucket != -1 )
+            {
+                block_counter += GetAllBucketEntries(fd, *current_bucket, value, header_info.attrName);
+            }
+            bucket_counter++;
+        }
+        block_counter++;
+        current_block_num = GetNextBlockNumber(current_block);
+    }
+
+    return block_counter;
+}
+
+int HT_GetUniqueEntry(HT_info header_info, void *value)
+{
+    int fd = header_info.fileDesc;
+    void *current_block;
+    
+    if (BF_ReadBlock(fd, 0, &current_block) < -1) { return -1; }
+
+    int current_block_num = GetNextBlockNumber(current_block);
+
+    // Could take advantage of header_info.attrType here as well...
+    int hash_code = GetHashcode(*((int*)value), header_info.numBuckets);    
+    int target_block = hash_code / MAX_BUCKETS;
+    int *target_bucket;
+    int block_counter = 0;
+
+    while (current_block_num != -1)
+    {
+        if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
+
+        if (block_counter != target_block)
+        {
+            block_counter++;
+            current_block_num = GetNextBlockNumber(current_block);
+        }
+        else
+        {
+            target_bucket = (int*)current_block + hash_code - (block_counter*MAX_BUCKETS);
+
+            if (*target_bucket == -1)
+            // Bucket Empty, so nothing to search here
+            {
+                return -1;
+            }
+            else
+            {
+                return block_counter + GetAllBucketEntries(fd, *target_bucket, value, header_info.attrName);
+            }
+        }        
+    }
+
+    return block_counter;
+}
+
+int HashStatistics(char *filename)
+{
+
 }
