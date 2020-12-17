@@ -48,6 +48,8 @@ int HT_CreateBuckets(int fd, int buckets);
 
 int HT_GetUniqueEntry(HT_info header_info, void *value);
 
+int IsHashFile(int fd);
+
 /* HT_info functions -----------------------------------------------------*/
 
 void delete_HT_info(HT_info *info);
@@ -69,6 +71,8 @@ int InsertEntryToBucket(int fd, int starting_block_num, Record record, const cha
 int DeleteEntryFromBucket(int fd, int starting_block_num, void *key_value, const char *key_name);
 
 int GetAllBucketEntries(int fd, int starting_block_num, void *key_value, const char *key_name);
+
+int GetBucketStats(int fd, int starting_block_num, int *total_blocks, int *total_records);
 
 /* Record-Block Functions -----------------------------------------------------*/
 
