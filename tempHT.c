@@ -12,7 +12,7 @@ int main(void)
     int limit = 10000;
     BF_Init();
 
-    HT_CreateIndex(fileName, 'i', "id", 4, 10000);
+    HT_CreateIndex(fileName, 'i', "id", 4, 1000);
 
     HT_info *info = HT_OpenIndex(fileName);
 
@@ -34,16 +34,16 @@ int main(void)
         HT_DeleteEntry(*info, &i);
     }
     */
-    
+    /*
     for (i = 0; i < limit; i ++)
     {
         //HT_GetUniqueEntry(*info, &i);
         HT_GetAllEntries(*info, &i);
     }
-    
-    //HT_GetAllEntries(*info, NULL);
 
+    //HT_GetAllEntries(*info, NULL);
+    */
     HT_CloseIndex(info);
-    
+    //HashStatistics(fileName);
     return 0;
 }
