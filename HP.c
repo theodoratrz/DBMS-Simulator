@@ -420,10 +420,14 @@ int HP_InitFile(int fd, char type, const char *name, int length)
 
     data = Get_HP_info_Data(&info);
 
+    free(info.attrName);
+
     memcpy(block, "heap", strlen("heap") + 1);
 
     //memcpy(block + strlen("heap") + 1, data, sizeof(HP_info));
     memcpy(block + strlen("heap") + 1, data, HP_INFO_SIZE);
+
+    free(data);
 
     // set pointer to next block (-1)
     HP_SetNextBlockNumber(block, -1);

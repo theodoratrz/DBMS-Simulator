@@ -40,10 +40,10 @@ int main(void)
         //HT_GetUniqueEntry(*info, &i);
         HT_GetAllEntries(*info, &i);
     }
-    
+
     //HT_GetAllEntries(*info, NULL);
     */
     HT_CloseIndex(info);
-    HashStatistics(fileName);
+    //HashStatistics(fileName);
     return 0;
 }

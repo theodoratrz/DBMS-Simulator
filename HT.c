@@ -592,9 +592,13 @@ int HT_InitFile(int fd, char type, const char *name, int length, unsigned long i
 
     data = Get_HT_info_Data(&info);
 
+    free(info.attrName);
+
     memcpy(block, "hash", strlen("hash") + 1);
 
     memcpy(block + strlen("hash") + 1, data, HT_INFO_SIZE);
+
+    free(data);
 
     // set pointer to next block (-1)
     SetNextBlockNumber(block, -1);
