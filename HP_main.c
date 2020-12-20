@@ -15,7 +15,7 @@ int main(void)
     HP_CreateFile(fileName, 'i', "id", 4);
     HP_info *info = HP_OpenFile(fileName);
 
-    // Read file, parse each line into a record and insert it
+    // Read input file, parse each line into a record and insert it in the heap file
     int current_field = 0;
     FILE *inputFile = fopen(INPUT_FILE, "r");
     if (inputFile == NULL)
@@ -25,12 +25,15 @@ int main(void)
     }
     int c = EOF;
 
+    // Used for parsing
     Record rec;
     char *id;
     char *name;
     char *surname;
     char *address;
     int end;
+
+    // Counts stored records
     int records = 0;
     
     while ( (c = getc(inputFile) ) != EOF )
@@ -56,13 +59,14 @@ int main(void)
             }
             else
             {
-                /*processing*/
+                // A record has been fully read at this point
+                // Storing data at the record
                 rec.id = atoi(id);
                 strcpy(rec.name, name);
                 strcpy(rec.surname, surname);
                 strcpy(rec.address, address);
 
-                //PrintRecord(rec);
+                // Inserting record in heap file
                 if (HP_InsertEntry(*info, rec) < 0)
                 {
                     perror("Error Inserting Record");
@@ -75,6 +79,7 @@ int main(void)
                 }
                 records++;
 
+                // Prepare for next record
                 current_field = 0;
                 free(id);
                 free(name);

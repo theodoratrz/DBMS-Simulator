@@ -6,6 +6,8 @@
 !tempHT.c
 !tempHP.c
 !parse_main.c
+!HP_main.c
+!HT_main.c
 
 *.o
 *.a

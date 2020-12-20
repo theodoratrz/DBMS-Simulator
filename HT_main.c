@@ -3,19 +3,21 @@
 #include <string.h>
 
 #include "BF.h"
-#include "HP.h"
+#include "HT.h"
 
 #define INPUT_FILE "record_examples/records5K.txt"
+#define NUM_BUCKETS 5000
 
 int main(void)
 {
-    char *fileName = "HP_file";
+    char *fileName = "HT_file";
+    int buckets = NUM_BUCKETS;
 
     BF_Init();
-    HP_CreateFile(fileName, 'i', "id", 4);
-    HP_info *info = HP_OpenFile(fileName);
+    HT_CreateIndex(fileName, 'i', "id", 4, buckets);
+    HT_info *info = HT_OpenIndex(fileName);
 
-    // Read file, parse each line into a record and insert it
+    // Read input file, parse each line into a record and insert it in the hash file
     int current_field = 0;
     FILE *inputFile = fopen(INPUT_FILE, "r");
     if (inputFile == NULL)
@@ -25,12 +27,15 @@ int main(void)
     }
     int c = EOF;
 
+    // Used for parsing
     Record rec;
     char *id;
     char *name;
     char *surname;
     char *address;
     int end;
+
+    // Counts stored records
     int records = 0;
     
     while ( (c = getc(inputFile) ) != EOF )
@@ -56,25 +61,27 @@ int main(void)
             }
             else
             {
-                /*processing*/
+                // A record has been fully read at this point
+                // Storing data at the record
                 rec.id = atoi(id);
                 strcpy(rec.name, name);
                 strcpy(rec.surname, surname);
                 strcpy(rec.address, address);
 
-                //PrintRecord(rec);
-                if (HP_InsertEntry(*info, rec) < 0)
+                // Inserting record in hash file
+                if (HT_InsertEntry(*info, rec) < 0)
                 {
                     perror("Error Inserting Record");
                     fclose(inputFile);
-                    if (HP_CloseFile(info) < 0)
+                    if (HT_CloseIndex(info) < 0)
                     {
-                        perror("Error closing HP file");
+                        perror("Error closing HT file");
                     }
                     exit(EXIT_FAILURE);
                 }
                 records++;
 
+                // Prepare for next record
                 current_field = 0;
                 free(id);
                 free(name);
@@ -134,18 +141,31 @@ int main(void)
     for (int i = 0; i < (records/2); i++)
     {
         // Deleting record with id == i
-        HP_DeleteEntry(*info, &i);
+        HT_DeleteEntry(*info, &i);
     }
     
     for (int i = 0; i < records; i++)
     {
-        HP_GetAllEntries(*info, &i);
+        //HT_GetAllEntries(*info, &i);
+
+        // HT_GetAllEntries does not take advantage of hashing (since it should work for
+        // other attributes apart from the id, like name or address, which are not hashed)
+
+        // HT_GetUniqueEntry does take advantage of hashing, so if we want to search
+        // with id as key, it is a much faster option.
+        HT_GetUniqueEntry(*info, &i);
     }
 
     // We can also make this call alternatively (prints all stored records)
-    //HP_GetAllEntries(*info, NULL); 
+    //HT_GetAllEntries(*info, NULL);
     
-    if (HP_CloseFile(info) < 0) {return 1;}
+    if (HT_CloseIndex(info) < 0) {return 1;}
+
+    if (HashStatistics(fileName) < 0)
+    {
+        perror("Error in HashStatistics");
+        exit(EXIT_FAILURE);
+    }
 
     return 0;
 }

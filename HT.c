@@ -938,7 +938,7 @@ int HashStatistics(char *filename)
     }
     printf("--------------- Total Stats ---------------\n");
     printf("Total Blocks in File (with header): %d\n", block_counter);
-    printf("Minimum Records in non-empty Bucket: %d\n", min_bucket_records);
+    printf("Minimum Records in initialized Bucket: %d\n", min_bucket_records);
     printf("Maximum Records in Bucket: %d\n", max_bucket_records);
     printf("Average Records per Bucket: %.3f\n", ((double)record_counter / (double)file_buckets));
     printf("Average Blocks per Bucket: %.3f\n", ((double)bucket_block_counter / (double)file_buckets));
