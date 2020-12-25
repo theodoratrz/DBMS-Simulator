@@ -11,26 +11,34 @@
 #include "HP.h"
 #include "BF.h"
 
+/* Record functions ------------------------------------------------------------------ */
+
+/* Creates a record using the specified byte sequence. */
 Record* GetRecord(const void *data)
 {
     Record *record = malloc(sizeof(Record));
 
-    const void *temp = data;
+    const void *temp = data;        // Used to iterate over the sequence
 
+    // Copying ID
     memcpy(&(record->id), temp, sizeof(int));
     temp = (int*)temp + 1;
 
+    // Copying name
     strcpy(record->name, (char*)temp);
     temp = (char*)temp + sizeof(record->name);
 
+    // Copying surname
     strcpy(record->surname, (char*)temp);
     temp = (char*)temp + sizeof(record->surname);
 
+    // Copying address
     strcpy(record->address, (char*)temp);
 
     return record;
 }
 
+/* Converts the specified Record into a byte sequence (no padding). */
 void* GetRecordData(const Record *rec)
 {
     void *data;
@@ -40,40 +48,55 @@ void* GetRecordData(const Record *rec)
     int surname_size = 25;
     int address_size = 50;
 
-    data = malloc(RECORD_SIZE);
-    temp = data;
+    data = malloc(RECORD_SIZE);     // Allocating space for the sequence
+    temp = data;                    // Used to iterate over the sequence
 
+    // Copying ID
     memcpy(temp, &(rec->id), id_size);
     temp = (int*)temp + 1;
+
+    // Copying name
     memcpy( temp, rec->name, name_size );
     temp = (char*)temp + name_size;
+
+    // Copying surname
     memcpy( temp, rec->surname, surname_size );
     temp = (char*)temp + surname_size;
+
+    // Copying address
     memcpy( temp, rec->address, address_size);
 
+    // Done.
     return data;
 }
 
+/* Copies the Record (as byte sequence) pointed by SRC into DEST. */
 void CopyRecord(void *dest, void *src)
 {
     memcpy(dest, src, RECORD_SIZE);
 }
 
+/* Returns a pointer to the next Record (as byte sequence). */
 void* NextRecord(void *current)
 {
     return (char*)current + RECORD_SIZE;
 }
 
+/* Prints the specified Record. */
 void PrintRecord(Record rec)
 {
     printf("{ %d, %s, %s, %s }\n", rec.id, rec.name, rec.surname, rec.address);
 }
 
+/* Returns 0 if the KEY_NAME field value of the specified record is equal to VALUE, -1 otherwise. */
 int HP_RecordKeyHasValue(void *record, const char *key_name, void *value)
 {
     Record *temp;
 
+    // The specified record is a byte sequence, so convert it to a struct Record to make thing simpler
     temp = GetRecord(record);
+
+    // Different case for every possible field name
     if ( strcmp(key_name, "id") == 0)
     {
         if ( memcmp( &(temp->id), value, sizeof(int) ) == 0 )
@@ -108,14 +131,20 @@ int HP_RecordKeyHasValue(void *record, const char *key_name, void *value)
     }
     
     free(temp);
+
+    // If this point is reached, the specified field value was not the same, so return -1
+    // Note that this point will also be reached in case KEY_NAME is invalid
     return -1;
 }
 
 /* HP_info functions ----------------------------------------------------------------- */
 
+/* Returns the header info of the heap file with the specified file descriptor. */
 HP_info* Get_HP_info(int fd)
 {
     void *block;
+
+    // The header is placed in block 0
     if (BF_ReadBlock(fd, 0, &block) < 0) { return NULL; }
 
     if (memcmp(block, "heap", strlen("heap") + 1) != 0)
@@ -124,52 +153,65 @@ HP_info* Get_HP_info(int fd)
         return NULL;
     }
 
+    // The header is a byte sequence, so convert it to a struct HP_info
     HP_info *info = malloc(sizeof(HP_info));
-    void *temp = (char*)block + strlen("heap") + 1;
+    void *temp = (char*)block + strlen("heap") + 1;     // Used to iterate over the sequence
     int len;
 
+    // Copying file descriptor field
     memcpy(&(info->fileDesc), temp, sizeof(int));
     temp = (int*)temp + 1;
 
+    // Copying attrType field
     memcpy(&(info->attrType), temp, 1);
     temp = (char*)temp + 1;
 
+    // Copying attrName field (size must be determined first)
     len = strlen((char*)temp) + 1;
     info->attrName = malloc(len);
     memcpy(info->attrName, temp, len);
     temp = (char*)temp + len;
 
+    // Copying attrLength field
     memcpy(&(info->attrLength), temp, sizeof(int));
 
     return info;
 }
 
+/* Converts the specified HP_info into a byte sequence. */
 void* Get_HP_info_Data(const HP_info *info)
 {
     void *data;
     void *temp;
     int fd_size = sizeof(int);
     int type_size = 1;
-    int name_size = 3;      // id (2 chars) + null char
+    int name_size = 3;              // 3 because "id" -> 2 chars + null character
     int length_size = sizeof(int);
 
+    // Allocating space
     data = malloc(HP_INFO_SIZE);
-    temp = data;
+    temp = data;                    // Used to iterate over the sequence
 
+    // Copying file descriptor
     memcpy(temp, &(info->fileDesc), fd_size);
     temp = (int*)temp + 1;
 
+    // Copying attribute type
     memcpy( temp, &(info->attrType), type_size );
     temp = (char*)temp + type_size;
 
+    // Copying attribute name
     memcpy( temp, info->attrName, name_size );
     temp = (char*)temp + name_size;
 
+    // Copying attribute length
     memcpy( temp, &(info->attrLength), length_size);
 
+    // Done.
     return data;
 }
 
+/* Properly deletes the specified HP_info. */
 void delete_HP_info(HP_info *info)
 {
     free(info->attrName);
@@ -397,7 +439,6 @@ int HP_CloseFile(HP_info* header_info)
 
     if (BF_CloseFile(header_info->fileDesc) < 0) { return -1; }
 
-    //free(header_info);
     delete_HP_info(header_info);
     return 0;
 }
