@@ -220,6 +220,7 @@ void delete_HP_info(HP_info *info)
 
 /* Block functions ------------------------------------------------------------------- */
 
+// TO BE DELETED (Not used)
 void* HP_GetNextBlock(int fd, void *current)
 {
     int next_block_num;
@@ -233,23 +234,30 @@ void* HP_GetNextBlock(int fd, void *current)
     return next_block;
 }
 
+/* Sets the next block number of the specified block to NUM. */
 void HP_SetNextBlockNumber(void *current, int num)
 {
+    // The number is an int located at the end of the block
     memcpy((char*)current + BLOCK_SIZE - sizeof(int), &num, sizeof(int) );
 }
 
+/* Returns the next block number in the specified block. */
 int HP_GetNextBlockNumber(void *current)
 {
     int next;
+    // The number is an int located at the end of the block
     memcpy(&next, (char*)current + BLOCK_SIZE - sizeof(int), sizeof(int) );
     return next;
 }
 
+/* Sets the number of records in the specified block to N. */
 void HP_SetNumRecords(void *block, int n)
 {
+    // The number of records is placed before the next block number
     memcpy( (char*)block + BLOCK_SIZE - 2*sizeof(int), &n, sizeof(int) );
 }
 
+/* Returns the number of records in the specified block. */
 int HP_GetNumRecords(void *block)
 {
     int num;
@@ -257,55 +265,78 @@ int HP_GetNumRecords(void *block)
     return num;
 }
 
+/* Creates and adds a new block after the one with the specified number. */
 int HP_AddNextBlock(int fd, int current_num)
 {
     void *current, *new;
     int new_num;
 
+    // Read the current block
     if (BF_ReadBlock(fd, current_num, &current) < 0) { return -1; }
 
+    // Allocate a new block
     if (BF_AllocateBlock(fd) < 0) { return -1; }
 
+    // Get the new block number
     if ( (new_num = BF_GetBlockCounter(fd) - 1) < -1  ) { return -1; }
 
+    // Set the next block number of the current block
     HP_SetNextBlockNumber(current, new_num);
 
+    // Write back the current block
     BF_WriteBlock(fd, current_num);
 
+    // Reade the new block and initialize it properly
     if (BF_ReadBlock(fd, new_num, &new) < 0) { return -1; }
     HP_SetNumRecords(new, 0);
     HP_SetNextBlockNumber(new, -1);
 
+    // Write back the new block
     BF_WriteBlock(fd, new_num);
 
+    // Return the number of the new block
     return new_num;
 }
 
+/* Inserts the specified record in the block with the specified number.
+   Whether a record with the same key already exists must have been previously checked.
+   If the record was successfully inserted, returns 0, otherwise -1.*/
 int HP_InsertRecordtoBlock(int fd, int block_num, Record rec)
 {
     void *block;
 
+    // Reading the block using file descriptor and getting number of block in it
     if (BF_ReadBlock(fd, block_num, &block) < 0) { return -1; }
     int num_records = HP_GetNumRecords(block);
 
     if( num_records < MAX_RECORDS)
+    // The block still has space for a new record
     {
+        // Convert record into byte sequence
         void* data = GetRecordData(&rec);
 
+        // Write the sequence right after the last record
         memcpy( (char*)block + num_records*RECORD_SIZE, data, RECORD_SIZE );
         free(data);     // this won't be needed anymore
 
+        // Increase the number of records
         HP_SetNumRecords(block, num_records + 1);
+
+        // The block is ready to be written back to the disk
         if (BF_WriteBlock(fd, block_num) < 0){ return -1; }
 
+        // Return success
         return 0;
     }
     else
+    // In case the block is full, return fail
     {
         return -1;
     }
 }
 
+/* Returns 0 if the specified block contains a record with KEY_NAME
+   field value equal to the one in the specified Record. Returns -1 otherwise. */
 int BlockHasRecordWithKey(void *block, const char* key_name, Record *rec)
 {
     int num_records = HP_GetNumRecords(block);
@@ -327,11 +358,14 @@ int BlockHasRecordWithKey(void *block, const char* key_name, Record *rec)
     return -1;
 }
 
+/* Returns a pointer to the last record of the specified block. */
 void* GetLastRecord(void *block)
 {
     return (char*)block + (HP_GetNumRecords(block) - 1)*RECORD_SIZE;
 }
 
+/* Deletes the first record from the block where KEY_NAME field value is equal to VALUE.
+   Returns 0 if the record was eventually deleted, -1 otherwise. */
 int HP_DeleteRecordFromBlock(void *block, const char *key_name, void *value)
 {
     int num_records = HP_GetNumRecords(block);
@@ -356,6 +390,9 @@ int HP_DeleteRecordFromBlock(void *block, const char *key_name, void *value)
         curr_record = NextRecord(curr_record);
         curr_record_num++;
     }
+
+    // TEST THAT
+    return -1;
 }
 
 int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value)
