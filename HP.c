@@ -545,6 +545,9 @@ int HP_InitFile(int fd, char type, const char *name, int length)
     return 0;
 }
 
+/* Inserts the specified Record in the heap file, if the key field value is unique.
+   Returns the number of the block where the Record was inserted.
+   If the Record was not inserted (duplicate key or error), -1 is returned. */
 int HP_InsertEntry( HP_info header_info, Record record )
 {
     int fd = header_info.fileDesc;
@@ -554,10 +557,12 @@ int HP_InsertEntry( HP_info header_info, Record record )
     
     int current_block_num = 0;
     int next_block_num = HP_GetNextBlockNumber(current);
-    int empty_block_found = 0;
+    int empty_block_found = 0;                              // Indicates whether a non-full block has been found
     int empty_block_num = -1;
     int num_rec;
 
+    // The idea is to iterate over the blocks to check for duplicate key,
+    // and save the first non-full block to store the record
     while(next_block_num != -1)
     {
         current_block_num = next_block_num;
@@ -565,8 +570,10 @@ int HP_InsertEntry( HP_info header_info, Record record )
         num_rec = HP_GetNumRecords(current);
 
         if (num_rec == 0)
+        // If the current block has no records, don't check for duplicate key
         {
             if ( !empty_block_found )
+            // If this is the first non-full block found, save it
             {
                 empty_block_num = current_block_num;
                 empty_block_found = 1;
@@ -575,15 +582,19 @@ int HP_InsertEntry( HP_info header_info, Record record )
         else
         {
             if ( num_rec < MAX_RECORDS )
+            // If the current block has free space
             {
                 if ( !empty_block_found )
+                // If this is the first non-full block found, save it
                 {
                     empty_block_num = current_block_num;
                     empty_block_found = 1;
                 }
             }
             if (BlockHasRecordWithKey(current, header_info.attrName, &record) == 0)
+            // If the block already has a record with key equal to the specified one's,
             {
+                // Don't insert the record
                 return -1;
             }
         }
@@ -591,10 +602,13 @@ int HP_InsertEntry( HP_info header_info, Record record )
     }
 
     if ( !empty_block_found)
+    // No non-full block has been found
     {
+        // Create a new block after the last one
         int new_block_num = HP_AddNextBlock(fd, current_block_num); 
         if (new_block_num < 0) { return -1; }
 
+        // And insert the Record there
         if (HP_InsertRecordtoBlock(fd, new_block_num, record) == 0)
         {
             return new_block_num;
@@ -605,7 +619,9 @@ int HP_InsertEntry( HP_info header_info, Record record )
         }
     }
     else
+    // A non-full block has been found,
     {
+        // So insert the Record there
         if (HP_InsertRecordtoBlock(fd, empty_block_num, record) == 0)
         {
             return empty_block_num;
@@ -613,6 +629,9 @@ int HP_InsertEntry( HP_info header_info, Record record )
     }
 }
 
+/* Deletes the Record with key field == VALUE from the file. 
+   Returns 0 if the Record was deleted, -1 otherwise.
+   Note that only the first occurence is deleted. */
 int HP_DeleteEntry(HP_info header_info, void *value )
 {
     int fd = header_info.fileDesc;
@@ -622,13 +641,16 @@ int HP_DeleteEntry(HP_info header_info, void *value )
 
     int curr_block_num = HP_GetNextBlockNumber(curr_block);
 
+    // Iterate over the blocks
     while(curr_block_num != -1)
     {
         if (BF_ReadBlock(fd, curr_block_num, &curr_block) < 0 ) { return -1; }
 
+        // Attempt to delete the record from every block, until it is deleted successfully
         if (HP_DeleteRecordFromBlock(curr_block, header_info.attrName, value) == 0)
         // Record Deleted
         {
+            // Write-back the block and return success
             if (BF_WriteBlock(fd, curr_block_num) < 0) { return -1; }
             return 0;
         }
@@ -637,6 +659,8 @@ int HP_DeleteEntry(HP_info header_info, void *value )
     return -1;
 }
 
+/* Prints all the records in the heap file with key field (attrName) value == VALUE.
+   Returns the number of read blocks **up to the last printed Record** (-1 in case of an error). */
 int HP_GetAllEntries(HP_info header_info, void *value)
 {
     int fd = header_info.fileDesc;
@@ -645,13 +669,16 @@ int HP_GetAllEntries(HP_info header_info, void *value)
     if ( BF_ReadBlock(fd, 0, &curr_block) < 0) { return -1; }
 
     int curr_block_num = HP_GetNextBlockNumber(curr_block);
+    // The block counter to be returned
     int read_blocks_until_rec = 0;
     int blocks_from_last_rec = 1;
 
+    // Iterate over the blocks
     while(curr_block_num != -1)
     {
         if (BF_ReadBlock(fd, curr_block_num, &curr_block) < 0 ) { return -1; }
 
+        // Print all Records of the current block with the specified key field value
         if (PrintBlockRecordsWithKey(curr_block, header_info.attrName, value) == 0)
         {
             read_blocks_until_rec += blocks_from_last_rec;
