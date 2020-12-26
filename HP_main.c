@@ -12,8 +12,18 @@ int main(void)
     char *fileName = "HP_file";
 
     BF_Init();
-    HP_CreateFile(fileName, 'i', "id", 4);
+    if (HP_CreateFile(fileName, 'i', "id", 4) < 0)
+    {
+        perror("Could not create heap file.\n");
+        exit(EXIT_FAILURE);
+    }
     HP_info *info = HP_OpenFile(fileName);
+
+    if (info == NULL)
+    {
+        perror("Could not open heap file.\n");
+        exit(EXIT_FAILURE);
+    }
 
     // Read input file, parse each line into a record and insert it in the heap file
     int current_field = 0;

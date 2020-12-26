@@ -139,7 +139,8 @@ int HP_RecordKeyHasValue(void *record, const char *key_name, void *value)
 
 /* HP_info functions ----------------------------------------------------------------- */
 
-/* Returns the header info of the heap file with the specified file descriptor. */
+/* Returns the header info of the heap file with the specified file descriptor.
+   In case of an error, NULL is returned. */
 HP_info* Get_HP_info(int fd)
 {
     void *block;
@@ -220,20 +221,6 @@ void delete_HP_info(HP_info *info)
 
 /* Block functions ------------------------------------------------------------------- */
 
-// TO BE DELETED (Not used)
-void* HP_GetNextBlock(int fd, void *current)
-{
-    int next_block_num;
-    void *next_block;
-
-    next_block_num = HP_GetNextBlockNumber(current);
-
-    if (next_block_num == -1) { return NULL; }
-    if (BF_ReadBlock(fd, next_block_num, &next_block) < 0) { return NULL; }
-
-    return next_block;
-}
-
 /* Sets the next block number of the specified block to NUM. */
 void HP_SetNextBlockNumber(void *current, int num)
 {
@@ -265,7 +252,8 @@ int HP_GetNumRecords(void *block)
     return num;
 }
 
-/* Creates and adds a new block after the one with the specified number. */
+/* Creates and adds a new block after the one with the specified number.
+   Returns the number of the new block, or -1 in case of an error. */
 int HP_AddNextBlock(int fd, int current_num)
 {
     void *current, *new;
@@ -340,21 +328,26 @@ int HP_InsertRecordtoBlock(int fd, int block_num, Record rec)
 int BlockHasRecordWithKey(void *block, const char* key_name, Record *rec)
 {
     int num_records = HP_GetNumRecords(block);
+
+    // Return -1 if the block has no records
     if(num_records == 0) { return -1; }
 
     int curr_record_num = 1;
     void *curr_record;
     curr_record = block;
 
+    // Iterate over the records in the block
     while( curr_record_num <= num_records )
     {
         if (HP_RecordKeyHasValue(curr_record, key_name, &(rec->id)) == 0)
+        // Record with same value in KEY_NAME found
         {
             return 0;
         }
         curr_record = NextRecord(curr_record);
         curr_record_num++;
     }
+    // No record with same KEY_NAME field value found, so return -1
     return -1;
 }
 
@@ -365,7 +358,7 @@ void* GetLastRecord(void *block)
 }
 
 /* Deletes the first record from the block where KEY_NAME field value is equal to VALUE.
-   Returns 0 if the record was eventually deleted, -1 otherwise. */
+   Returns 0 if the record was deleted, -1 otherwise. Note that only the first occurence is deleted.*/
 int HP_DeleteRecordFromBlock(void *block, const char *key_name, void *value)
 {
     int num_records = HP_GetNumRecords(block);
@@ -375,15 +368,18 @@ int HP_DeleteRecordFromBlock(void *block, const char *key_name, void *value)
     void *curr_record;
     curr_record = block;
 
+    // Iterate over the records in the block
     while( curr_record_num <= num_records )
     {
         if (HP_RecordKeyHasValue(curr_record, key_name, value) == 0)
+        // Found record to delete
         {
-            // Delete record (replace with last etc.)
             if (curr_record_num!= num_records)
             {
+                // Replace it the last record
                 CopyRecord(curr_record, GetLastRecord(block));
             }
+            // Decrement record counter
             HP_SetNumRecords(block, num_records -1);
             return 0;
         }
@@ -391,16 +387,19 @@ int HP_DeleteRecordFromBlock(void *block, const char *key_name, void *value)
         curr_record_num++;
     }
 
-    // TEST THAT
+    // No record was deleted
     return -1;
 }
 
+/* Prints all the records in the specified block, with KEY_NAME field value equal to VALUE.
+   Returns 0 if any records where printed, -1 otherwise.
+   In case VALUE is NULL, all records will be printed. */
 int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value)
 {
     int num_records = HP_GetNumRecords(block);
     if(num_records == 0) { return -1; }
-    int found_records = 0;
 
+    int found_records = 0;
     int curr_record_num = 1;
 
     void *curr_record;
@@ -408,28 +407,39 @@ int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value)
     Record *record;
 
     if (value == NULL)
+    // If VALUE is NULL, print all the records
     {
+        // Iterate over the records
         while( curr_record_num <= num_records )
         {
+            // Each record is stored as a byte sequence, so convert it in a struct Record
             record = GetRecord(curr_record);
+            // And print it
             PrintRecord(*record);
             found_records++;
             free(record);
+
+            // Go to the next record
             curr_record = NextRecord(curr_record);
             curr_record_num++;
         }
     }
     else
     {
+        // Iterate over the records
         while( curr_record_num <= num_records )
         {
             if (HP_RecordKeyHasValue(curr_record, key_name, value) == 0)
+            // Found record to print
             {
+                // Each record is stored as a byte sequence, so convert it in a struct Record
                 record = GetRecord(curr_record);
+                // And print it
                 PrintRecord(*record);
                 found_records++;
                 free(record);
             }
+            // Go to the next record
             curr_record = NextRecord(curr_record);
             curr_record_num++;
         }
@@ -437,11 +447,13 @@ int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value)
 
     if (found_records) { return 0; }
     
+    // No records were printed
     return -1;
 }
 
 /* General HP functions ----------------------------------------------------------------- */
 
+/* Creates a new heap file with the specified information. Returns -1 in case of an error, 0 otherwise. */
 int HP_CreateFile(const char *fileName, const char attrType, const char* attrName, const int attrLength)
 {
     int fd;
@@ -451,6 +463,7 @@ int HP_CreateFile(const char *fileName, const char attrType, const char* attrNam
     fd = BF_OpenFile(fileName);
     if( fd < 0) { return -1; }
 
+    // File ready to be initiallized
     if ( HP_InitFile(fd, attrType, attrName, attrLength) < 0 ) { return -1; }
 
     if (BF_CloseFile(fd) < 0) { return -1; }
@@ -458,60 +471,77 @@ int HP_CreateFile(const char *fileName, const char attrType, const char* attrNam
     return 0;
 }
 
+/* Opens the heap file with the specified name and returns the header information of it. 
+   In case of an error, returns NULL. */
 HP_info* HP_OpenFile(const char *fileName)
 {
     HP_info* info;
     int fd;
 
+    // Opening file
     if ( (fd = BF_OpenFile(fileName)) < 0) { return NULL; }
 
+    // Getting header info of the file
     info = Get_HP_info(fd);
     
+    // Returning it
     return info;
 }
 
+/* Closes the file with the specified header information. Returns 0 if successful, -1 otherwise.
+   The specified struct is deleted, so make sure it has been created using HP_OpenFile or malloc. */
 int HP_CloseFile(HP_info* header_info)
 {
     if (header_info == NULL) { return -1; }
 
+    // Close file
     if (BF_CloseFile(header_info->fileDesc) < 0) { return -1; }
 
+    // Delete the struct
     delete_HP_info(header_info);
     return 0;
 }
 
+/* Initiallizes the file with the specified file descriptor and sets up the information header.
+   Returns 0 if successful, -1 otherwise. */
 int HP_InitFile(int fd, char type, const char *name, int length)
 {
     void* block;
     HP_info info;
     void *data;
 
+    // Create block to store header info
     if(BF_AllocateBlock(fd) < 0) { return -1; }
 
     if(BF_ReadBlock(fd, 0, &block) < 0) { return -1; }
 
+    // Creating and setting up header info using a struct
     info.fileDesc = fd;
     info.attrType = type;
     info.attrName = malloc(strlen(name) + 1);
     strcpy(info.attrName, name);
     info.attrLength = length;
 
+    // Convert struct into a byte sequence
     data = Get_HP_info_Data(&info);
 
     free(info.attrName);
 
+    // A string "heap" verifies this is a heap file
     memcpy(block, "heap", strlen("heap") + 1);
 
-    //memcpy(block + strlen("heap") + 1, data, sizeof(HP_info));
+    // Writing info in the block
     memcpy(block + strlen("heap") + 1, data, HP_INFO_SIZE);
 
     free(data);
 
-    // set pointer to next block (-1)
+    // Set pointer to next block to -1
     HP_SetNextBlockNumber(block, -1);
 
+    // Write the block back
     if (BF_WriteBlock(fd, 0) < 0) { return -1; }
 
+    // Done.
     return 0;
 }
 

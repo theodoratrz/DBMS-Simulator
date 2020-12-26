@@ -67,9 +67,6 @@ void HP_SetNextBlockNumber(void *current, int num);
 
 int HP_GetNextBlockNumber(void *current);
 
-void* HP_GetNextBlock(  int fd, 
-                        void *current_block);
-
 void HP_SetNumRecords(void *block, int n);
 
 int HP_AddNextBlock(int fd, int current_num);
