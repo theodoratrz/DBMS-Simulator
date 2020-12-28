@@ -11,8 +11,8 @@
 #include "BF.h"
 #include "HT.h"
 
-#define INPUT_FILE "record_examples/records5K.txt"
-#define NUM_BUCKETS 10000
+#define INPUT_FILE "record_examples/records10K.txt"
+#define NUM_BUCKETS 20000
 
 int main(void)
 {
