@@ -596,8 +596,9 @@ int InsertEntryToBucket(int fd, int starting_block_num, Record record, const cha
         int new_block_num = AddNextBlock(fd, current_block_num); 
         if (new_block_num < 0) { return -1; }
 
-        // And insert the Record there
+        // And attempt to insert the Record there
         if (InsertRecordtoBlock(fd, new_block_num, record) == 0)
+        // Successfully inserted
         {
             return new_block_num;
         }
@@ -727,10 +728,13 @@ int HT_InitFile(int fd, char type, const char *name, int length, unsigned long i
     HT_info info;
     void *data;
 
+    // Creating the first block of the file
     if(BF_AllocateBlock(fd) < 0) { return -1; }
 
+    // Since it is the first, block id  is 0
     if(BF_ReadBlock(fd, 0, &block) < 0) { return -1; }
 
+    // Creating a header struct with all the required information
     info.fileDesc = fd;
     info.attrType = type;
     info.attrName = malloc(strlen(name) + 1);
@@ -738,21 +742,25 @@ int HT_InitFile(int fd, char type, const char *name, int length, unsigned long i
     info.attrLength = length;
     info.numBuckets = buckets;
 
+    // Converting the struct into a byte sequence
     data = Get_HT_info_Data(&info);
 
     free(info.attrName);
 
+    // Storing a "hash" string to identify that this is a Hash File
     memcpy(block, "hash", strlen("hash") + 1);
 
+    // Storing the header sequence
     memcpy(block + strlen("hash") + 1, data, HT_INFO_SIZE);
 
     free(data);
 
-    // set pointer to next block (-1)
+    // Initialize pointer to next block (-1)
     SetNextBlockNumber(block, -1);
 
     if (BF_WriteBlock(fd, 0) < 0) { return -1; }
 
+    // Done.
     return 0;
 }
 
@@ -760,6 +768,7 @@ int HT_InitFile(int fd, char type, const char *name, int length, unsigned long i
    Returns 0 if successful, -1 if failed. */
 int HT_CreateBuckets(int fd, int buckets)
 {
+    // Calculating how many blocks will be needed to store the buckets
     int nof_blocks = (buckets / MAX_BUCKETS) + 1;
 
     void *curr_block;
@@ -767,10 +776,13 @@ int HT_CreateBuckets(int fd, int buckets)
     int next_block_num = 0;
     int curr_block_num = 0;
 
+    // Begin from header block
     if ( BF_ReadBlock(fd, 0, &curr_block) < 0) { return -1; }
 
+    // Adding a new block after the last one in every loop
     while(block_counter < nof_blocks)
     {       
+        // Creating new block and connecting it with the last one
         if (BF_AllocateBlock(fd) < 0 ) { return -1; }
         curr_block_num = next_block_num;
         next_block_num = BF_GetBlockCounter(fd) - 1;
@@ -778,11 +790,14 @@ int HT_CreateBuckets(int fd, int buckets)
 
         if ( BF_WriteBlock(fd, curr_block_num) < 0) { return -1; }
 
+        // Reading the new block (which now becomes the current one)
         block_counter++;
         if ( BF_ReadBlock(fd, next_block_num, &curr_block) < 0) { return -1; }
 
+        // Initializing the buckets of the new block
         InitBuckets(curr_block);
     }
+    // The last block has -1 as next block number
     SetNextBlockNumber(curr_block, -1);
     if ( BF_WriteBlock(fd, next_block_num) < 0) { return -1; }
 
@@ -794,15 +809,19 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
 {
     int fd;
 
+    // Creating the file in block-level
     if(BF_CreateFile(fileName) < 0) { return -1; }
 
     fd = BF_OpenFile(fileName);
     if( fd < 0) { return -1; }
 
+    // Initializing the new file
     if ( HT_InitFile(fd, attrType, attrName, attrLength, buckets) < 0 ) { return -1; }
 
+    // Creating bucket blocks
     if ( HT_CreateBuckets(fd, buckets) < 0) { return -1; }
 
+    // File is ready
     if (BF_CloseFile(fd) < 0) { return -1; }
     
     return 0;
@@ -815,8 +834,10 @@ HT_info* HT_OpenIndex(char *fileName)
     HT_info *info;
     int fd;
 
+    // Opening the file
     if ( (fd = BF_OpenFile(fileName)) < 0) { return NULL; }
 
+    // Getting header information
     info = Get_HT_info(fd);
 
     return info;
@@ -834,40 +855,48 @@ int HT_CloseIndex(HT_info *header_info)
     return 0;
 }
 
+/*  Inserts the specified record in the hash file, as long as the key field (as specified in
+    the header) does not have a duplicate value.
+    Takes advantage of hashing in order to quickly locate the bucket where the block should be inserted. 
+    Returns the number of the block where the record was inserted, otherwise -1.*/
 int HT_InsertEntry(HT_info header_info, Record record)
 {
     int fd = header_info.fileDesc;
     void *current_block;
     
+    // Starting from the header block
     if (BF_ReadBlock(fd, 0, &current_block) < -1) { return -1; }
 
     int current_block_num = 0;
     int next_block_num = GetNextBlockNumber(current_block);
 
     int hash_code = GetHashcode(record.id, header_info.numBuckets);
-    int target_block = hash_code / MAX_BUCKETS;
+    int target_block = hash_code / MAX_BUCKETS;             // The block where the bucket for insertion is (relative position, not the id)
     void *target_bucket;
     int bucket_starting_block;
-    int block_counter = 0;
+    int block_counter = 0;                                  // Counts the iterated blocks
 
+    // Iterating over the blocks of the hashtable
     while (next_block_num != -1)
     {
         current_block_num = next_block_num;
         if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
 
         if (block_counter != target_block)
+        // If this is not the target block, continue to the next one
         {
             block_counter++;
             next_block_num = GetNextBlockNumber(current_block);
         }
         else
+        // This is the block we are looking for
         {
-            // Finding the relative hash code (in the target block)
+            // Finding the *relative* position of the bucket in the block
             target_bucket = (int*)current_block + hash_code - (block_counter*MAX_BUCKETS);
             memcpy(&bucket_starting_block, target_bucket, sizeof(int));
 
             if (bucket_starting_block == -1)
-            // Bucket Empty
+            // The bucket is empty and must be initiallized
             {
                 // Create new block
                 bucket_starting_block = NewRecordBlock(fd);
@@ -875,16 +904,21 @@ int HT_InsertEntry(HT_info header_info, Record record)
                 if (bucket_starting_block == -1) { return -1; }
                 // Make the bucket point to the new block
                 SetBucket(target_bucket, bucket_starting_block);
-                //memcpy(target_bucket, &bucket_starting_block, sizeof(int));
+
                 if ( BF_WriteBlock(fd, current_block_num) < 0 ) { return -1; }
             }
 
+            // Ready to insert the record
             return InsertEntryToBucket(fd, bucket_starting_block, record, header_info.attrName);            
         }        
     }
     return -1;    
 }
 
+/* Deletes the Record with key field == VALUE from the file. 
+   Returns 0 if the Record was deleted, -1 otherwise.
+   Takes advantage of hashing to quickly locate the bucket where the entry is.
+   Note that only the first occurence is deleted. */
 int HT_DeleteEntry(HT_info header_info, void *value)
 {
     int fd = header_info.fileDesc;
@@ -895,27 +929,28 @@ int HT_DeleteEntry(HT_info header_info, void *value)
     int current_block_num = 0;
     int next_block_num = GetNextBlockNumber(current_block);
 
-    // Could take advantage of header_info.attrType here as well...
     int hash_code = GetHashcode(*((int*)value), header_info.numBuckets);
     
-    int target_block = hash_code / MAX_BUCKETS;
+    int target_block = hash_code / MAX_BUCKETS;                 // The block where the bucket for the hashcode is (relative position, not the id)
     void *target_bucket;
     int bucket_starting_block;
     int block_counter = 0;
 
+    // Iterating over the blocks of the hashtable
     while (next_block_num != -1)
     {
         current_block_num = next_block_num;
         if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
 
         if (block_counter != target_block)
+        // If this is not the target block, continue to the next one
         {
             block_counter++;
             next_block_num = GetNextBlockNumber(current_block);
         }
         else
         {
-            // Finding the relative hash code (in the target block)
+            // Finding the *relative* position of the bucket in the block
             target_bucket = (int*)current_block + hash_code - (block_counter*MAX_BUCKETS);
 
             memcpy(&bucket_starting_block, target_bucket, sizeof(int));
@@ -926,6 +961,7 @@ int HT_DeleteEntry(HT_info header_info, void *value)
                 return -1;
             }
             else
+            // Bucket not empty, so attempt to delete
             {
                 return DeleteEntryFromBucket(fd, bucket_starting_block, value, header_info.attrName);
             }
@@ -934,6 +970,9 @@ int HT_DeleteEntry(HT_info header_info, void *value)
     return -1;
 }
 
+/* Prints all the records in the heap file with key field (attrName) value == VALUE.
+   Returns the number of read blocks **up to the last printed Record** (-1 in case of an error).
+   It works for any possible key field, but does not take advantage of hashing.*/
 int HT_GetAllEntries(HT_info header_info, void *value)
 {
     int fd = header_info.fileDesc;
@@ -961,8 +1000,12 @@ int HT_GetAllEntries(HT_info header_info, void *value)
             // Without this, current_block is reset at some point and the functionality totally breaks
             if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
 
+            // Getting the bucket value
             current_bucket = (int*)current_block + bucket_counter;
+
+            // If bucket empty, skip it
             if ( *current_bucket != -1 )
+            // Bucket is not empty, so get the entries in it
             {
                 block_counter += GetAllBucketEntries(fd, *current_bucket, value, header_info.attrName);
             }
@@ -975,6 +1018,9 @@ int HT_GetAllEntries(HT_info header_info, void *value)
     return block_counter;
 }
 
+/*  Prints a (unique) record for which key(id) == VALUE.
+    Takes advantage of hashing to locate the corresponding bucket.
+    Returns the number of blocks read until the record was found (or not found), -1 in case of error. */
 int HT_GetUniqueEntry(HT_info header_info, void *value)
 {
     int fd = header_info.fileDesc;
@@ -984,23 +1030,26 @@ int HT_GetUniqueEntry(HT_info header_info, void *value)
 
     int current_block_num = GetNextBlockNumber(current_block);
 
-    // Could take advantage of header_info.attrType here as well...
     int hash_code = GetHashcode(*((int*)value), header_info.numBuckets);    
-    int target_block = hash_code / MAX_BUCKETS;
+    int target_block = hash_code / MAX_BUCKETS;                 // The block where the bucket for this hashcode is (relative position, not the id)
     int *target_bucket;
-    int block_counter = 0;
+    int block_counter = 0;                                      // Counts read blocks
 
+    // Iterating over the hashtable blocks
     while (current_block_num != -1)
     {
         if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
 
         if (block_counter != target_block)
+        // If this is not the target block, continue to the next one
         {
             block_counter++;
             current_block_num = GetNextBlockNumber(current_block);
         }
         else
+        // This is the block we are looking for
         {
+            // Finding the *relative* position of the bucket in the block
             target_bucket = (int*)current_block + hash_code - (block_counter*MAX_BUCKETS);
 
             if (*target_bucket == -1)
@@ -1009,6 +1058,7 @@ int HT_GetUniqueEntry(HT_info header_info, void *value)
                 return -1;
             }
             else
+            // Bucket not empty, so search here
             {
                 return block_counter + GetAllBucketEntries(fd, *target_bucket, value, header_info.attrName);
             }
