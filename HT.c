@@ -36,7 +36,7 @@ int GetHashcode(int id, unsigned long int mod)
     return result;
 }
 
-/* Record Functions */
+/* Record Functions --------------------------------------------------------------*/
 
 /* Creates a record using the specified byte sequence. */
 Record* GetRecord(const void *data)
@@ -156,7 +156,7 @@ void PrintRecord(Record rec)
     printf("{ %d, %s, %s, %s }\n", rec.id, rec.name, rec.surname, rec.address);
 }
 
-/* HT_info Functions */
+/* HT_info Functions -------------------------------------------------------------*/
 
 /* Returns the header info of the hash file with the specified file descriptor.
    In case of an error, NULL is returned. */
@@ -448,7 +448,7 @@ int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value)
     return -1;
 }
 
-/* Bucket-Block functions */
+/* Bucket-Block functions --------------------------------------------------------*/
 
 /* Initializes all the buckets of the given block to -1 (empty). */
 void InitBuckets(void *block)
@@ -579,6 +579,9 @@ int DeleteEntryFromBucket(int fd, int starting_block_num, void *key_value, const
     return -1;
 }
 
+/*  Prints all Records with KEY_NAME field == KEY_VALUE, in the bucket starting
+    at the block with the specified number.
+    Returns the number of blocks read *up to the last printed record*, or -1 in case of error. */
 int GetAllBucketEntries(int fd, int starting_block_num, void *key_value, const char *key_name)
 {
     void *curr_block;
@@ -606,6 +609,9 @@ int GetAllBucketEntries(int fd, int starting_block_num, void *key_value, const c
     return read_blocks_until_rec;
 }
 
+/* Calculates statistics for the bucket that starts at the block with the specified number.
+   Stores the number of total blocks and total records in bucket, in TOTAL_BLOCKS and TOTAL_RECORDS respectively.
+   Returns 0 if successful, -1 if failed. */
 int GetBucketStats(int fd, int starting_block_num, int *total_blocks, int *total_records)
 {
     void *curr_block;
@@ -629,8 +635,11 @@ int GetBucketStats(int fd, int starting_block_num, int *total_blocks, int *total
     return 0;
 }
 
-/* More general HT functions */
+/* More general HT functions -----------------------------------------------------*/
 
+/*  Initializes all the recuired information for the specified Hash file
+    (given attributes, blocks, buckets, etc.)
+    Returns 0 if succesful, -1 if failed. */
 int HT_InitFile(int fd, char type, const char *name, int length, unsigned long int buckets)
 {
     void* block;
