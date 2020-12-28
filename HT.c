@@ -1097,7 +1097,7 @@ int HashStatistics(char *filename)
     // Counts total records in file
     int record_counter = 0;
     int max_bucket_records = -1;
-    int min_bucket_records = INT32_MAX;
+    int min_bucket_records = -1;
     // Counts buckets with overflow block
     int overflowed_buckets = 0;
 
@@ -1138,10 +1138,10 @@ int HashStatistics(char *filename)
                 {
                     max_bucket_records = current_bucket_records;
                 }
-                if (current_bucket_records < min_bucket_records)
+                if ( (current_bucket_records < min_bucket_records) || (min_bucket_records == -1) )
                 {
                     min_bucket_records = current_bucket_records;
-                }
+                }                
             }
             bucket_counter++;
             file_buckets++;
