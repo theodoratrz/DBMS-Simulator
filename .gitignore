@@ -8,6 +8,7 @@
 !parse_main.c
 !HP_main.c
 !HT_main.c
+!Makefile
 
 *.o
 *.a

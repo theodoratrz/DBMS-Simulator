@@ -6,7 +6,7 @@
 #include "HT.h"
 
 #define INPUT_FILE "record_examples/records5K.txt"
-#define NUM_BUCKETS 5000
+#define NUM_BUCKETS 10000
 
 int main(void)
 {

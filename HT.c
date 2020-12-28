@@ -692,17 +692,21 @@ int GetAllBucketEntries(int fd, int starting_block_num, void *key_value, const c
 int GetBucketStats(int fd, int starting_block_num, int *total_blocks, int *total_records)
 {
     void *curr_block;
-    // TODO
+    
+    // Begin from the first block of the bucket (where the bucket points to)
     int curr_block_num = starting_block_num;
     int block_counter = 0;
     int record_counter = 0;
 
+    // Iterate over the blocks of the bucket
     while(curr_block_num != -1)
     {
         if (BF_ReadBlock(fd, curr_block_num, &curr_block) < 0 ) { return -1; }
 
+        // Update counters after evaluating this block
         record_counter += GetBlockNumRecords(curr_block);
         block_counter++;
+        // And continue to the next one
         curr_block_num = GetNextBlockNumber(curr_block);
     }
 
@@ -1104,7 +1108,7 @@ int HashStatistics(char *filename)
     printf("Average Records per Bucket: %.3f\n", ((double)record_counter / (double)file_buckets));
     printf("Average Blocks per Bucket: %.3f\n", ((double)bucket_block_counter / (double)file_buckets));
     printf("Buckets with overflow Block: %d\n", overflowed_buckets);
-    printf("Note: If a bucket number is missing it means it remained empty throughout the execution.\n");
+    printf("Note: If a bucket number is missing it means that bucket remained empty throughout the execution.\n");
 
     if (BF_CloseFile(fd) < 0) { return -1; }
 
