@@ -1,3 +1,9 @@
+/*
+ * File: HT_main.h
+ * Pavlos Spanoudakis (sdi1800184)
+ * Theodora Troizi (sdi1800197)
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -6,7 +12,7 @@
 #include "HT.h"
 
 #define INPUT_FILE "record_examples/records5K.txt"
-#define NUM_BUCKETS 5000
+#define NUM_BUCKETS 10000
 
 int main(void)
 {
@@ -141,7 +147,16 @@ int main(void)
     for (int i = 0; i < (records/2); i++)
     {
         // Deleting record with id == i
-        HT_DeleteEntry(*info, &i);
+        if ( HT_DeleteEntry(*info, &i) < 0)
+        {
+            perror("Error Deleting Record");
+            fclose(inputFile);
+            if (HT_CloseIndex(info) < 0)
+            {
+                perror("Error closing HT file");
+            }
+            exit(EXIT_FAILURE);
+        }
     }
     
     for (int i = 0; i < records; i++)
@@ -153,11 +168,20 @@ int main(void)
 
         // HT_GetUniqueEntry does take advantage of hashing, so if we want to search
         // with id as key, it is a much faster option.
-        HT_GetUniqueEntry(*info, &i);
+        if ( HT_GetUniqueEntry(*info, &i) < 0)
+        {
+            perror("Error Getting Record");
+            fclose(inputFile);
+            if (HT_CloseIndex(info) < 0)
+            {
+                perror("Error closing HT file");
+            }
+            exit(EXIT_FAILURE);
+        }
     }
 
     // We can also make this call alternatively (prints all stored records)
-    //HT_GetAllEntries(*info, NULL);
+    // HT_GetAllEntries(*info, NULL);
     
     if (HT_CloseIndex(info) < 0) {return 1;}
 

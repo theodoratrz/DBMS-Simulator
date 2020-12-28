@@ -93,7 +93,7 @@ int HP_RecordKeyHasValue(void *record, const char *key_name, void *value)
 {
     Record *temp;
 
-    // The specified record is a byte sequence, so convert it to a struct Record to make thing simpler
+    // The specified record is a byte sequence, so convert it to a struct Record to make things simpler
     temp = GetRecord(record);
 
     // Different case for every possible field name
@@ -189,7 +189,7 @@ void* Get_HP_info_Data(const HP_info *info)
     int name_size = 3;              // 3 because "id" -> 2 chars + null character
     int length_size = sizeof(int);
 
-    // Allocating space
+    // Allocating space for the struct
     data = malloc(HP_INFO_SIZE);
     temp = data;                    // Used to iterate over the sequence
 
@@ -274,7 +274,7 @@ int HP_AddNextBlock(int fd, int current_num)
     // Write back the current block
     BF_WriteBlock(fd, current_num);
 
-    // Reade the new block and initialize it properly
+    // Read the new block and initialize it properly
     if (BF_ReadBlock(fd, new_num, &new) < 0) { return -1; }
     HP_SetNumRecords(new, 0);
     HP_SetNextBlockNumber(new, -1);
@@ -293,7 +293,7 @@ int HP_InsertRecordtoBlock(int fd, int block_num, Record rec)
 {
     void *block;
 
-    // Reading the block using file descriptor and getting number of block in it
+    // Reading the block using file descriptor and getting number of records in it
     if (BF_ReadBlock(fd, block_num, &block) < 0) { return -1; }
     int num_records = HP_GetNumRecords(block);
 
@@ -375,6 +375,7 @@ int HP_DeleteRecordFromBlock(void *block, const char *key_name, void *value)
         // Found record to delete
         {
             if (curr_record_num!= num_records)
+            // This was not the last record
             {
                 // Replace it the last record
                 CopyRecord(curr_record, GetLastRecord(block));

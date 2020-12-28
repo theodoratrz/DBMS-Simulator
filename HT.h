@@ -84,8 +84,6 @@ void SetNextBlockNumber(void *current, int num);
 
 int GetNextBlockNumber(void *current);
 
-int GetNumRecords(void *block);
-
 void SetNumRecords(void *block, int n);
 
 int AddNextBlock(int fd, int current_num);
@@ -95,6 +93,8 @@ int InsertRecordtoBlock(int fd, int block_num, Record rec);
 int BlockHasRecordWithKey(void *block, const char* key_name, Record *rec);
 
 int DeleteRecordFromBlock(void *block, const char *key_name, void *value);
+
+void* GetLastRecord(void *block);
 
 int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value);
 
@@ -107,8 +107,6 @@ void* GetRecordData(const Record *rec);
 void CopyRecord(void *dest, void *src);
 
 void* NextRecord(void *current);
-
-void* GetLastRecord(void *block);
 
 int RecordKeyHasValue(void *record, const char *key_name, void *value);
 
