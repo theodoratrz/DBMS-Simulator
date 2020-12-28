@@ -84,8 +84,6 @@ void SetNextBlockNumber(void *current, int num);
 
 int GetNextBlockNumber(void *current);
 
-int GetNumRecords(void *block);
-
 void SetNumRecords(void *block, int n);
 
 int AddNextBlock(int fd, int current_num);
