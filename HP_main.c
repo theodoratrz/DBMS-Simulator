@@ -1,3 +1,9 @@
+/*
+ * File: HP_main.h
+ * Pavlos Spanoudakis (sdi1800184)
+ * Theodora Troizi (sdi1800197)
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -149,12 +155,30 @@ int main(void)
     for (int i = 0; i < (records/2); i++)
     {
         // Deleting record with id == i
-        HP_DeleteEntry(*info, &i);
+        if (HP_DeleteEntry(*info, &i) < 0 )
+        {
+            perror("Error Deleting Record");
+            fclose(inputFile);
+            if (HP_CloseFile(info) < 0)
+            {
+                perror("Error closing HP file");
+            }
+            exit(EXIT_FAILURE);
+        }
     }
     
     for (int i = 0; i < records; i++)
     {
-        HP_GetAllEntries(*info, &i);
+        if ( HP_GetAllEntries(*info, &i) < 0)
+        {
+            perror("Error Getting Record");
+            fclose(inputFile);
+            if (HP_CloseFile(info) < 0)
+            {
+                perror("Error closing HT file");
+            }
+            exit(EXIT_FAILURE);
+        }
     }
 
     // We can also make this call alternatively (prints all stored records)
