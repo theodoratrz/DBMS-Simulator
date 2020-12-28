@@ -158,6 +158,8 @@ void PrintRecord(Record rec)
 
 /* HT_info Functions */
 
+/* Returns the header info of the hash file with the specified file descriptor.
+   In case of an error, NULL is returned. */
 HT_info* Get_HT_info(int fd)
 {
     void *block;
@@ -192,13 +194,14 @@ HT_info* Get_HT_info(int fd)
     return info;
 }
 
+/* Converts the specified HT_info into a byte sequence. */
 void* Get_HT_info_Data(const HT_info *info)
 {
     void *data;
     void *temp;
     int fd_size = sizeof(int);
     int type_size = 1;
-    int name_size = 3;      // id (2 chars) + null char
+    int name_size = 3;                      // 3 because "id" -> 2 chars + null character
     int length_size = sizeof(int);
     int buckets_size = sizeof(unsigned long int);
 
@@ -447,6 +450,7 @@ int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value)
 
 /* Bucket-Block functions */
 
+/* Initializes all the buckets of the given block to -1 (empty). */
 void InitBuckets(void *block)
 {
     int num_buckets = 0;
@@ -465,16 +469,21 @@ void InitBuckets(void *block)
     }
 }
 
+/* Returns the address of the next bucket (for better readability). */
 void* GetNextBucket(void *current)
 {
     return (int*)current + 1;
 }
 
+/* Sets the value of the specified bucket to BN. */
 void SetBucket(void *current, int bn)
 {
     memcpy(current, &bn, sizeof(int));
 }
 
+/* Inserts the specified Record in the bucket block (specified by number), if the key field value is unique.
+   Returns the number of the block where the Record was inserted.
+   If the Record was not inserted (duplicate key or error), -1 is returned. */
 int InsertEntryToBucket(int fd, int starting_block_num, Record record, const char *key_name)
 {
     void *current;
@@ -540,6 +549,9 @@ int InsertEntryToBucket(int fd, int starting_block_num, Record record, const cha
     }
 }
 
+/* Deletes the Record with key field == VALUE from the bucket block (specified by number). 
+   Returns 0 if the Record was deleted, -1 otherwise.
+   Note that only the first occurence is deleted. */
 int DeleteEntryFromBucket(int fd, int starting_block_num, void *key_value, const char *key_name)
 {
     void *current;    
@@ -654,6 +666,8 @@ int HT_InitFile(int fd, char type, const char *name, int length, unsigned long i
     return 0;
 }
 
+/* Creates the buckets of the file with the speicfied file descriptor.
+   Returns 0 if successful, -1 if failed. */
 int HT_CreateBuckets(int fd, int buckets)
 {
     int nof_blocks = (buckets / MAX_BUCKETS) + 1;
@@ -685,6 +699,7 @@ int HT_CreateBuckets(int fd, int buckets)
     return 0;
 }
 
+/* Creates a Hash File with the specified information. Returns -1 in case of an error, 0 otherwise. */
 int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLength, int buckets )
 {
     int fd;
@@ -703,6 +718,8 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
     return 0;
 }
 
+/* Opens the Hash File with the specified name.
+   If succesful, returns the header struct of this file, otherwise returns NULL. */
 HT_info* HT_OpenIndex(char *fileName)
 {
     HT_info *info;
@@ -715,6 +732,8 @@ HT_info* HT_OpenIndex(char *fileName)
     return info;
 }
 
+/* Closes the Hash File specified by the given header struct, which is deleted.
+   Returns 0 if successful, -1 otherwise. */
 int HT_CloseIndex(HT_info *header_info)
 {
     if (header_info == NULL) { return -1; }
@@ -909,6 +928,8 @@ int HT_GetUniqueEntry(HT_info header_info, void *value)
     return block_counter;
 }
 
+/* Prints several statistics about the hash file (record/bucket ratio etc.).
+   Returns 0 if succesful, otherwise -1. */
 int HashStatistics(char *filename)
 {
     int fd;
@@ -916,6 +937,7 @@ int HashStatistics(char *filename)
     void *current_block;
 
     if (!IsHashFile(fd))
+    // Return fail if this is not a hash file
     {
         printf("The given file is not a Hash file.\n");
         return -1;
@@ -941,7 +963,7 @@ int HashStatistics(char *filename)
 
     int current_bucket_blocks;
     int *current_bucket;    
-    // Counts buckets in current HT block
+    // Counts buckets only in current HT block (Used for iteration)
     int bucket_counter;    
     int current_bucket_records;
     
@@ -952,14 +974,19 @@ int HashStatistics(char *filename)
         bucket_counter = 0;
         while (bucket_counter < MAX_BUCKETS)
         {
+            // Read the current block in each loop
             // Without this, current_block is reset at some point and the functionality totally breaks
             if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
 
+            // Locating the bucket in the current block
             current_bucket = (int*)current_block + bucket_counter;
             if ( *current_bucket != -1 )
             {
+                // Print stats for this bucket, and get counter values
                 if (GetBucketStats(fd, *current_bucket, &current_bucket_blocks, &current_bucket_records) < 0) { return -1; }
                 printf("Bucket: %d Total Overflow Blocks: %d\n", file_buckets, current_bucket_blocks - 1);
+
+                // Update total stats
                 if (current_bucket_blocks - 1 > 0)
                 {
                     overflowed_buckets++;
@@ -982,6 +1009,8 @@ int HashStatistics(char *filename)
         block_counter++;
         current_block_num = GetNextBlockNumber(current_block);
     }
+
+    // Display final stats
     printf("--------------- Total Stats ---------------\n");
     printf("Total Blocks in File (with header): %d\n", block_counter);
     printf("Minimum Records in initialized Bucket: %d\n", min_bucket_records);
