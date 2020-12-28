@@ -17,15 +17,20 @@ int GetHashcode(int id, unsigned long int mod)
 {
     int result;
     char *data = (char*)&id;
+
+    // Initial hashcode is stored here
     char *hash = malloc(sizeof(SHA_DIGEST_LENGTH));
     unsigned long int hash_num;
 
+    // Getting the hashcode
     SHA1(data, 4, hash);
 
+    // Copying part of it and storing it
     memcpy(&hash_num, hash, sizeof(unsigned long int));
 
     free(hash);
 
+    // Calculating modulo and returning the result in a typical int
     hash_num = hash_num % mod;
     result = hash_num;
     return result;
@@ -33,26 +38,32 @@ int GetHashcode(int id, unsigned long int mod)
 
 /* Record Functions */
 
+/* Creates a record using the specified byte sequence. */
 Record* GetRecord(const void *data)
 {
     Record *record = malloc(sizeof(Record));
 
-    const void *temp = data;
+    const void *temp = data;        // Used to iterate over the sequence
 
+    // Copying ID
     memcpy(&(record->id), temp, sizeof(int));
     temp = (int*)temp + 1;
 
+    // Copying name
     strcpy(record->name, (char*)temp);
     temp = (char*)temp + sizeof(record->name);
 
+    // Copying surname
     strcpy(record->surname, (char*)temp);
     temp = (char*)temp + sizeof(record->surname);
 
+    // Copying address
     strcpy(record->address, (char*)temp);
 
     return record;
 }
 
+/* Converts the specified Record into a byte sequence (no padding). */
 void* GetRecordData(const Record *rec)
 {
     void *data;
@@ -62,35 +73,41 @@ void* GetRecordData(const Record *rec)
     int surname_size = 25;
     int address_size = 50;
 
-    data = malloc(RECORD_SIZE);
-    temp = data;
+    data = malloc(RECORD_SIZE);     // Allocating space for the sequence
+    temp = data;                    // Used to iterate over the sequence
 
+    // Copying ID
     memcpy(temp, &(rec->id), id_size);
     temp = (int*)temp + 1;
+
+    // Copying name
     memcpy( temp, rec->name, name_size );
     temp = (char*)temp + name_size;
+
+    // Copying surname
     memcpy( temp, rec->surname, surname_size );
     temp = (char*)temp + surname_size;
+
+    // Copying address
     memcpy( temp, rec->address, address_size);
 
+    // Done.
     return data;
 }
 
+/* Copies the Record (as byte sequence) pointed by SRC into DEST. */
 void CopyRecord(void *dest, void *src)
 {
     memcpy(dest, src, RECORD_SIZE);
 }
 
+/* Returns a pointer to the next Record (as byte sequence). */
 void* NextRecord(void *current)
 {
     return (char*)current + RECORD_SIZE;
 }
 
-void* GetLastRecord(void *block)
-{
-    return (char*)block + (GetBlockNumRecords(block) - 1)*RECORD_SIZE;
-}
-
+/* Returns 0 if the KEY_NAME field value of the specified record is equal to VALUE, -1 otherwise. */
 int RecordKeyHasValue(void *record, const char *key_name, void *value)
 {
     Record *temp;
@@ -133,6 +150,7 @@ int RecordKeyHasValue(void *record, const char *key_name, void *value)
     return -1;
 }
 
+/* Prints the specified Record. */
 void PrintRecord(Record rec)
 {
     printf("{ %d, %s, %s, %s }\n", rec.id, rec.name, rec.surname, rec.address);
@@ -204,6 +222,7 @@ void* Get_HT_info_Data(const HT_info *info)
     return data;
 }
 
+/* Properly deletes the specified HT_info. */
 void delete_HT_info(HT_info *info)
 {
     free(info->attrName);
@@ -212,6 +231,8 @@ void delete_HT_info(HT_info *info)
 
 /* Record-Block Functions */
 
+/* Creates a new, initiallized record block.
+   Returns the number of the new block, or -1 in case of an error. */
 int NewRecordBlock(int fd)
 {
     if (BF_AllocateBlock(fd) < 0) { return -1; }
@@ -228,18 +249,23 @@ int NewRecordBlock(int fd)
     return block_num;
 }
 
+/* Returns the number of records in the specified block. */
 int GetBlockNumRecords(void *block)
 {
     int num;
+    // The number of records is placed before the next block number
     memcpy(&num, (char*)block + BLOCK_SIZE - 2*sizeof(int), sizeof(int));
     return num;
 }
 
+/* Sets the next block number of the specified block to NUM. */
 void SetNextBlockNumber(void *current, int num)
 {
+    // The number is an int located at the end of the block
     memcpy((char*)current + BLOCK_SIZE - sizeof(int), &num, sizeof(int) );
 }
 
+/* Returns the next block number in the specified block. */
 int GetNextBlockNumber(void *current)
 {
     int next;
@@ -247,6 +273,7 @@ int GetNextBlockNumber(void *current)
     return next;
 }
 
+// DUPLICATE
 int GetNumRecords(void *block)
 {
     int num;
@@ -254,11 +281,14 @@ int GetNumRecords(void *block)
     return num;
 }
 
+/* Sets the number of records in the specified block to N. */
 void SetNumRecords(void *block, int n)
 {
     memcpy( (char*)block + BLOCK_SIZE - 2*sizeof(int), &n, sizeof(int) );
 }
 
+/* Creates and adds a new block after the one with the specified number.
+   Returns the number of the new block, or -1 in case of an error. */
 int AddNextBlock(int fd, int current_num)
 {
     void *current, *new;
@@ -283,6 +313,9 @@ int AddNextBlock(int fd, int current_num)
     return new_num;
 }
 
+/* Inserts the specified record in the block with the specified number.
+   Whether a record with the same key already exists must have been previously checked.
+   If the record was successfully inserted, returns 0, otherwise -1.*/
 int InsertRecordtoBlock(int fd, int block_num, Record rec)
 {
     void *block;
@@ -308,6 +341,8 @@ int InsertRecordtoBlock(int fd, int block_num, Record rec)
     }
 }
 
+/* Returns 0 if the specified block contains a record with KEY_NAME
+   field value equal to the one in the specified Record. Returns -1 otherwise. */
 int BlockHasRecordWithKey(void *block, const char* key_name, Record *rec)
 {
     int num_records = GetBlockNumRecords(block);
@@ -329,6 +364,14 @@ int BlockHasRecordWithKey(void *block, const char* key_name, Record *rec)
     return -1;
 }
 
+/* Returns a pointer to the last record of the specified block. */
+void* GetLastRecord(void *block)
+{
+    return (char*)block + (GetBlockNumRecords(block) - 1)*RECORD_SIZE;
+}
+
+/* Deletes the first record from the block where KEY_NAME field value is equal to VALUE.
+   Returns 0 if the record was deleted, -1 otherwise. Note that only the first occurence is deleted.*/
 int DeleteRecordFromBlock(void *block, const char *key_name, void *value)
 {
     int num_records = GetNumRecords(block);
@@ -355,6 +398,9 @@ int DeleteRecordFromBlock(void *block, const char *key_name, void *value)
     }
 }
 
+/* Prints all the records in the specified block, with KEY_NAME field value equal to VALUE.
+   Returns 0 if any records where printed, -1 otherwise.
+   In case VALUE is NULL, all records will be printed. */
 int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value)
 {
     int num_records = GetBlockNumRecords(block);
@@ -950,12 +996,15 @@ int HashStatistics(char *filename)
     return 0;
 }
 
+/* Returns 1 if the file with the specified file descriptor is a hash file, otherwise returns 0. */
 int IsHashFile(int fd)
 {
     void *block;
 
+    // Reading first block in the file
     if(BF_ReadBlock(fd, 0, &block) < 0) { return -1; }
 
+    // Comparing the beginning of the file for "hash" string
     if (memcmp(block, "hash", strlen("hash") + 1) == 0)
     {
         return 1;

@@ -96,6 +96,8 @@ int BlockHasRecordWithKey(void *block, const char* key_name, Record *rec);
 
 int DeleteRecordFromBlock(void *block, const char *key_name, void *value);
 
+void* GetLastRecord(void *block);
+
 int PrintBlockRecordsWithKey(void *block, const char *key_name, void *value);
 
 /* Record Functions -----------------------------------------------------*/
@@ -107,8 +109,6 @@ void* GetRecordData(const Record *rec);
 void CopyRecord(void *dest, void *src);
 
 void* NextRecord(void *current);
-
-void* GetLastRecord(void *block);
 
 int RecordKeyHasValue(void *record, const char *key_name, void *value);
 
