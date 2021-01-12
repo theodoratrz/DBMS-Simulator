@@ -16,7 +16,7 @@ typedef struct {
 
 typedef struct {
     char surname[25];
-    int blockId;
+    int blockID;
 } SHT_Record;
 
 typedef struct {
@@ -27,13 +27,15 @@ typedef struct {
     char* fileName;
 } SHT_info;
 
+#define SHT_MAX_RECORDS 17
+
 int SHT_CreateSecondaryIndex(char *fileName, char attrType, char* attrName, int attrLength, int buckets);
 
 SHT_info* SHT_OpenSecondaryIndex(char *fileName);
 
 int SHT_CloseSecondaryIndex(SHT_info *header_info);
 
-int SHT_SecondaryInsertEntry(SHT_info header_info, Record record);
+int SHT_SecondaryInsertEntry(SHT_info header_info, SecondaryRecord record);
 
 int SHT_SecondaryGetAllEntries(SHT_info header_info, void *value);
 
@@ -57,17 +59,15 @@ SHT_info* Get_SHT_info(int fd);
 
 //void SHT_InitBuckets(void *block);
 
-int SHT_InsertEntryToBucket(int fd, int starting_block_num, SHT_Record record, const char *key_name);
+int SHT_InsertEntryToBucket(int fd, int starting_block_num, SecondaryRecord record, const char *key_name);
 
-int GetAllBucketEntries(int fd, int starting_block_num, void *key_value, const char *key_name);
-
-int GetBucketStats(int fd, int starting_block_num, int *total_blocks, int *total_records);
+int SHT_GetAllBucketEntries(int fd, int starting_block_num, void *key_value, const char *key_name);
 
 /* SHT_Record-Block functions -----------------------------------------------------------*/
 
 int SHT_InsertRecordtoBlock(int fd, int block_num, SHT_Record rec);
 
-int SHT_BlockHasRecord(void *block, SHT_Record *rec);
+int SHT_BlockHasRecord(void *block, char* key_name, SHT_Record *rec);
 
 void* SHT_GetLastRecord(void *block);
 
@@ -79,11 +79,13 @@ int SHT_Record_size();
 
 SHT_Record* Get_SHT_Record(const void *data);
 
-void* get_SHT_Record_data(const Record *rec);
+void* get_SHT_Record_data(const SHT_Record *rec);
 
 void* Next_SHT_Record(void *current);
 
 int RecordsEqual(void *record, SHT_Record other);
+
+int SHT_RecordHasKeyValue(void *record, void *value);
 
 /* The Hash function used by SHT. */
 int SHT_HashCode(char* data, unsigned long int mod);
