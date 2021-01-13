@@ -34,6 +34,27 @@ int SHT_HashCode(char* data, unsigned long int mod)
     return result;
 }
 
+/* Converts the specified SHT_Record into a byte sequence (no padding). */
+void* get_SHT_Record_data(const SHT_Record *rec)
+{
+    void *data;
+    void *temp;
+    int surname_size = 25;
+
+    data = malloc(SHT_Record_size());     // Allocating space for the sequence
+    temp = data;                    // Used to iterate over the sequence
+
+    // Copying ID
+    memcpy(temp, &(rec->surname), surname_size);
+    temp = (int*)temp + 1;
+
+    // Copying name
+    memcpy( temp, rec->blockID, sizeof(int) );
+
+    // Done.
+    return data;
+}
+
 /* SHT_info functions ------------------------------------------------------------------- */
 
 int SHT_info_size()
@@ -132,6 +153,19 @@ int SHT_Record_size()
     return 25 + sizeof(int);
 }
 
+int RecordsEqual(void *record, SHT_Record* other)
+{
+    // Different case for every possible field name
+    if (strncmp( (char*)record, other->surname, 25 ) == 0)
+    {
+        if (memcpy( (char*)record + 25, &(other->blockID), sizeof(int) ))
+        {
+            return 0;
+        }
+    }
+    return -1;
+}
+
 /* Returns a pointer to the last record of the specified block. */
 void* SHT_GetLastRecord(void *block)
 {
@@ -139,6 +173,32 @@ void* SHT_GetLastRecord(void *block)
 }
 
 /* SHT_Record-Block functions -----------------------------------------------------------*/
+
+int SHT_BlockHasRecord(void *block, char* key_name, SHT_Record *rec)
+{
+    int num_records = GetBlockNumRecords(block);
+
+    // Return -1 if the block has no records
+    if(num_records == 0) { return -1; }
+
+    int curr_record_num = 1;
+    void *curr_record;
+    curr_record = block;
+
+    // Iterate over the records in the block
+    while( curr_record_num <= num_records )
+    {
+        if (RecordsEqual(curr_record, rec) == 0)
+        // Record with same value in KEY_NAME found
+        {
+            return 0;
+        }
+        curr_record = NextRecord(curr_record);
+        curr_record_num++;
+    }
+    // No record with same KEY_NAME field value found, so return -1
+    return -1;
+}
 
 /* Inserts the specified record in the block with the specified number.
    Whether a record with the same key already exists must have been previously checked.
@@ -175,6 +235,41 @@ int SHT_InsertRecordtoBlock(int fd, int block_num, SHT_Record rec)
         // In case the block is full, return fail
         return -1;
     }
+}
+
+int SHT_PrintBlockRecordsWithKey(void *block, const char* key_name, void *value, int fd)
+{
+    int num_records = GetBlockNumRecords(block);
+    if(num_records == 0) { return -1; }
+    int found_records = 0;
+
+    int curr_record_num = 1;
+
+    void *curr_record;
+    curr_record = block;
+    void *primary_block;
+    SHT_Record* sec_record;
+ 
+    // Iterate over the records
+    while( curr_record_num <= num_records )
+    {
+        if (SHT_RecordHasKeyValue(curr_record, value) == 0)
+        // Found record to print
+        {
+            sec_record = Get_SHT_Record(curr_record);
+            if ( BF_ReadBlock(fd, sec_record->blockID, &primary_block) < 0) { return -1; }
+            PrintBlockRecordsWithKey(primary_block, key_name, value);
+            found_records++;
+            free(sec_record);
+        }
+        // Go to the next record
+        curr_record = Next_SHT_Record(curr_record);
+        curr_record_num++;
+    }
+    if (found_records) { return 0; }
+    
+    // No records were printed
+    return -1;
 }
 
 /* Bucket-Block functions ---------------------------------------------------------------*/
@@ -216,7 +311,7 @@ int SHT_InsertEntryToBucket(int fd, int starting_block_num, SecondaryRecord sec_
         }
         else
         {
-            if ( num_rec < MAX_RECORDS )
+            if ( num_rec < SHT_MAX_RECORDS )
             // If the current block has free space
             {
                 if ( !empty_block_found )
@@ -263,6 +358,37 @@ int SHT_InsertEntryToBucket(int fd, int starting_block_num, SecondaryRecord sec_
             return empty_block_num;
         }
     }
+}
+
+int SHT_GetAllBucketEntries(int fd, int starting_block_num, const char* key_name, void *key_value)
+{
+    void *curr_block;
+
+    // Begin from the first block of the bucket (where the bucket points to)
+    int curr_block_num = starting_block_num;
+    int read_blocks_until_rec = 0;              // The block counter to be returned
+    int blocks_from_last_rec = 1;
+
+    // Iterate over the blocks
+    while(curr_block_num != -1)
+    {
+        if (BF_ReadBlock(fd, curr_block_num, &curr_block) < 0 ) { return -1; }
+
+        // Print all Records of the current block with the specified key field value
+        if (SHT_PrintBlockRecordsWithKey(curr_block, key_name, key_value, fd) == 0)
+        {
+            read_blocks_until_rec += blocks_from_last_rec;
+            blocks_from_last_rec = 1;
+        }
+        else
+        {
+            blocks_from_last_rec++;
+        }
+
+        curr_block_num = GetNextBlockNumber(curr_block);
+    }
+    // If no entry is found, 0 is returned
+    return read_blocks_until_rec;
 }
 
 /*  Inserts the specified record in the hash file, as long as the key field (as specified in
@@ -330,10 +456,11 @@ int SHT_SecondaryInsertEntry(SHT_info header_info, SecondaryRecord record)
     Returns the number of blocks read until the record was found (or not found), -1 in case of error. */
 int SHT_SecondaryGetAllEntries(SHT_info header_info, void *value)
 {
-    int fd = header_info.fileDesc;
+    HT_info* primary_header = HT_OpenIndex(header_info.fileName);
+    if (primary_header == NULL) { return -1; }
     void *current_block;
     
-    if (BF_ReadBlock(fd, 0, &current_block) < -1) { return -1; }
+    if (BF_ReadBlock(header_info.fileDesc, 0, &current_block) < -1) { return -1; }
 
     int current_block_num = GetNextBlockNumber(current_block);
 
@@ -345,7 +472,7 @@ int SHT_SecondaryGetAllEntries(SHT_info header_info, void *value)
     // Iterating over the hashtable blocks
     while (current_block_num != -1)
     {
-        if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
+        if (BF_ReadBlock(header_info.fileDesc, current_block_num, &current_block) < 0) { return -1; }
 
         if (block_counter != target_block)
         // If this is not the target block, continue to the next one
@@ -367,7 +494,8 @@ int SHT_SecondaryGetAllEntries(SHT_info header_info, void *value)
             else
             // Bucket not empty, so search here
             {
-                return block_counter + SHT_GetAllBucketEntries(fd, *target_bucket, value, header_info.attrName);
+                return block_counter + SHT_GetAllBucketEntries(primary_header->fileDesc,
+                                                               *target_bucket, header_info.attrName, value);
             }
         }        
     }
