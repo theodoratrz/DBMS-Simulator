@@ -31,10 +31,8 @@ typedef struct {
 
 /* General SHT functions ----------------------------------------------------------------*/
 
-// TODO
-int SHT_CreateSecondaryIndex(char *fileName, char attrType, char* attrName, int attrLength, int buckets);
+int SHT_CreateSecondaryIndex(char *sfileName, char* attrName, int attrLength, int buckets, char* fileName);
 
-// TODO
 SHT_info* SHT_OpenSecondaryIndex(char *fileName);
 
 // TODO
@@ -46,8 +44,7 @@ int SHT_SecondaryGetAllEntries(SHT_info header_info, void *value);
 
 //int HashStatistics(char *filename);
 
-// TODO
-int SHT_InitFile(int fd, char type, const char *name, int length, unsigned long int bucket);
+int SHT_InitFile(int fd, const char *name, int length, unsigned long int buckets, const char *primary_file_name);
 
 // TODO
 int is_SHT_file(int fd);
@@ -64,7 +61,7 @@ SHT_info* Get_SHT_info(int fd);
 
 int SHT_InsertEntryToBucket(int fd, int starting_block_num, SecondaryRecord record, const char *key_name);
 
-int SHT_GetAllBucketEntries(int fd, int starting_block_num, const char* key_name, void *key_value);
+int SHT_GetAllBucketEntries(int fd, int starting_block_num, const char* key_name, void *key_value, int pfd);
 
 /* SHT_Record-Block functions -----------------------------------------------------------*/
 
@@ -91,6 +88,6 @@ int RecordsEqual(void *record, SHT_Record* other);
 int SHT_RecordHasKeyValue(void *record, void *value);
 
 /* The Hash function used by SHT. */
-int SHT_HashCode(char* data, unsigned long int mod);
+int SHT_Hashcode(char* data, unsigned long int mod);
 
 #endif

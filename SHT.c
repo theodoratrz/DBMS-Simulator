@@ -12,7 +12,7 @@
 #include "BF.h"
 #include "SHT.h"
 
-int SHT_HashCode(char* data, unsigned long int mod)
+int SHT_Hashcode(char* data, unsigned long int mod)
 {
     int result;
     
@@ -51,7 +51,7 @@ void* get_SHT_Record_data(const SHT_Record *rec)
 
     // Copying surname
     memcpy(temp, rec->surname, surname_size);
-    temp = (int*)temp + 1;
+    temp = (char*)temp + surname_size;
 
     // Copying block ID
     memcpy( temp, &(rec->blockID), sizeof(int) );
@@ -94,7 +94,8 @@ void* Get_SHT_info_Data(const SHT_info *info)
     memcpy( temp, &(info->numBuckets), sizeof(unsigned long int));
     temp = (unsigned long int*)temp + 1;
 
-    memcpy( temp, &(info->fileName), file_name_size);
+    // Copying primary file name
+    memcpy( temp, info->fileName, file_name_size);
 
     // Done.
     return data;
@@ -115,7 +116,7 @@ SHT_info* Get_SHT_info(int fd)
     void *block;
 
     // Return fail if this is not a hash file
-    if ( !IsHashFile(fd) ) { return NULL; }
+    //if ( !IsHashFile(fd) ) { return NULL; }
 
     // The header is placed in block 0
     if (BF_ReadBlock(fd, 0, &block) < 0) { return NULL; }
@@ -180,7 +181,11 @@ void* SHT_GetLastRecord(void *block)
 
 int SHT_RecordHasKeyValue(void *record, void *value)
 {
-    return ( strcmp(record, value) == 0 );
+    if (strcmp(record, value) == 0)
+    {
+        return 0;
+    }
+    return -1;
 }
 
 SHT_Record* Get_SHT_Record(const void *data)
@@ -191,7 +196,7 @@ SHT_Record* Get_SHT_Record(const void *data)
 
     // Copying key value
     strcpy(record->surname, temp);
-    temp = (char*)temp + (strlen(temp) + 1);
+    temp = (char*)temp + 25;
 
     // Copying block ID
     memcpy(&(record->blockID), temp, sizeof(int));
@@ -387,7 +392,7 @@ int SHT_InsertEntryToBucket(int fd, int starting_block_num, SecondaryRecord sec_
     }
 }
 
-int SHT_GetAllBucketEntries(int fd, int starting_block_num, const char* key_name, void *key_value)
+int SHT_GetAllBucketEntries(int fd, int starting_block_num, const char* key_name, void *key_value, int pfd)
 {
     void *curr_block;
 
@@ -402,7 +407,7 @@ int SHT_GetAllBucketEntries(int fd, int starting_block_num, const char* key_name
         if (BF_ReadBlock(fd, curr_block_num, &curr_block) < 0 ) { return -1; }
 
         // Print all Records of the current block with the specified key field value
-        if (SHT_PrintBlockRecordsWithKey(curr_block, key_name, key_value, fd) == 0)
+        if (SHT_PrintBlockRecordsWithKey(curr_block, key_name, key_value, pfd) == 0)
         {
             read_blocks_until_rec += blocks_from_last_rec;
             blocks_from_last_rec = 1;
@@ -420,6 +425,85 @@ int SHT_GetAllBucketEntries(int fd, int starting_block_num, const char* key_name
 
 /* General SHT functions ----------------------------------------------------------------*/
 
+int SHT_InitFile(int fd, const char *name, int length, unsigned long int buckets, const char *primary_file_name)
+{
+    void* block;
+    SHT_info info;
+    void *data;
+
+    // Creating the first block of the file
+    if(BF_AllocateBlock(fd) < 0) { return -1; }
+
+    // Since it is the first, block id  is 0
+    if(BF_ReadBlock(fd, 0, &block) < 0) { return -1; }
+
+    // Creating a header struct with all the required information
+    info.fileDesc = fd;
+    info.attrName = malloc(strlen(name) + 1);
+    strcpy(info.attrName, name);
+    info.attrLength = length;
+    info.numBuckets = buckets;
+    info.fileName = malloc(strlen(primary_file_name) + 1);
+    strcpy(info.fileName, primary_file_name);
+
+    // Converting the struct into a byte sequence
+    data = Get_SHT_info_Data(&info);
+
+    free(info.attrName);
+
+    // Storing a "sec_hash" string to identify that this is a Hash File
+    memcpy(block, "sec_hash", strlen("sec_hash") + 1);
+
+    // Storing the header sequence
+    memcpy(block + strlen("sec_hash") + 1, data, SHT_info_size());
+
+    free(data);
+
+    // Initialize pointer to next block (-1)
+    SetNextBlockNumber(block, -1);
+
+    if (BF_WriteBlock(fd, 0) < 0) { return -1; }
+
+    // Done.
+    return 0;
+}
+
+int SHT_CreateSecondaryIndex(char *sfileName, char* attrName, int attrLength, int buckets, char* fileName)
+{
+    int fd;
+
+    // Creating the file in block-level
+    if(BF_CreateFile(sfileName) < 0) { return -1; }
+
+    fd = BF_OpenFile(sfileName);
+    if( fd < 0) { return -1; }
+
+    // Initializing the new file
+    if ( SHT_InitFile(fd, attrName, attrLength, buckets, fileName) < 0 ) { return -1; }
+
+    // Creating bucket blocks
+    if ( HT_CreateBuckets(fd, buckets) < 0) { return -1; }
+
+    // File is ready
+    if (BF_CloseFile(fd) < 0) { return -1; }
+    
+    return 0;
+}
+
+SHT_info* SHT_OpenSecondaryIndex(char *fileName)
+{
+    SHT_info *info;
+    int fd;
+
+    // Opening the file
+    if ( (fd = BF_OpenFile(fileName)) < 0) { return NULL; }
+
+    // Getting header information
+    info = Get_SHT_info(fd);
+
+    return info;
+}
+
 /*  Inserts the specified record in the hash file, as long as the key field (as specified in
     the header) does not have a duplicate value.
     Takes advantage of hashing in order to quickly locate the bucket where the block should be inserted. 
@@ -435,7 +519,7 @@ int SHT_SecondaryInsertEntry(SHT_info header_info, SecondaryRecord record)
     int current_block_num = 0;
     int next_block_num = GetNextBlockNumber(current_block);
 
-    int hash_code = GetHashcode(record.record.id, header_info.numBuckets);
+    int hash_code = SHT_Hashcode(record.record.surname, header_info.numBuckets);
     int target_block = hash_code / MAX_BUCKETS;             // The block where the bucket for insertion is (relative position, not the id)
     void *target_bucket;
     int bucket_starting_block;
@@ -493,10 +577,11 @@ int SHT_SecondaryGetAllEntries(SHT_info header_info, void *value)
 
     int current_block_num = GetNextBlockNumber(current_block);
 
-    int hash_code = GetHashcode(*((int*)value), header_info.numBuckets);    
+    int hash_code = SHT_Hashcode((char*)value, header_info.numBuckets);    
     int target_block = hash_code / MAX_BUCKETS;                 // The block where the bucket for this hashcode is (relative position, not the id)
     int *target_bucket;
     int block_counter = 0;                                      // Counts read blocks
+    int total;
 
     // Iterating over the hashtable blocks
     while (current_block_num != -1)
@@ -523,8 +608,10 @@ int SHT_SecondaryGetAllEntries(SHT_info header_info, void *value)
             else
             // Bucket not empty, so search here
             {
-                return block_counter + SHT_GetAllBucketEntries(primary_header->fileDesc,
-                                                               *target_bucket, header_info.attrName, value);
+                total = block_counter + SHT_GetAllBucketEntries(header_info.fileDesc, *target_bucket,
+                                                               header_info.attrName, value, primary_header->fileDesc);
+                if ( HT_CloseIndex(primary_header) < 0 ) { return -1; }
+                return total;
             }
         }        
     }
