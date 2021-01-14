@@ -70,7 +70,7 @@ int SHT_GetAllBucketEntries(int fd, int starting_block_num, const char* key_name
 
 int SHT_InsertRecordtoBlock(int fd, int block_num, SHT_Record rec);
 
-int SHT_BlockHasRecord(void *block, char* key_name, SHT_Record *rec);
+int SHT_BlockHasRecord(void *block, const char* key_name, SHT_Record *rec);
 
 void* SHT_GetLastRecord(void *block);
 

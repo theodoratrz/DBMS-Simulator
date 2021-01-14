@@ -49,12 +49,12 @@ void* get_SHT_Record_data(const SHT_Record *rec)
     data = malloc(SHT_Record_size());     // Allocating space for the sequence
     temp = data;                    // Used to iterate over the sequence
 
-    // Copying ID
-    memcpy(temp, &(rec->surname), surname_size);
+    // Copying surname
+    memcpy(temp, rec->surname, surname_size);
     temp = (int*)temp + 1;
 
-    // Copying name
-    memcpy( temp, rec->blockID, sizeof(int) );
+    // Copying block ID
+    memcpy( temp, &(rec->blockID), sizeof(int) );
 
     // Done.
     return data;
@@ -194,14 +194,14 @@ SHT_Record* Get_SHT_Record(const void *data)
     temp = (char*)temp + (strlen(temp) + 1);
 
     // Copying block ID
-    memcpy(record->blockID, temp, sizeof(int));
+    memcpy(&(record->blockID), temp, sizeof(int));
 
     return record;
 }
 
 /* SHT_Record-Block functions -----------------------------------------------------------*/
 
-int SHT_BlockHasRecord(void *block, char* key_name, SHT_Record *rec)
+int SHT_BlockHasRecord(void *block, const char* key_name, SHT_Record *rec)
 {
     int num_records = GetBlockNumRecords(block);
 
