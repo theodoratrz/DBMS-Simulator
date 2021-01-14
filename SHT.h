@@ -29,6 +29,8 @@ typedef struct {
 
 #define SHT_MAX_RECORDS 17
 
+/* General SHT functions ----------------------------------------------------------------*/
+
 // TODO
 int SHT_CreateSecondaryIndex(char *fileName, char attrType, char* attrName, int attrLength, int buckets);
 
@@ -48,9 +50,6 @@ int SHT_SecondaryGetAllEntries(SHT_info header_info, void *value);
 int SHT_InitFile(int fd, char type, const char *name, int length, unsigned long int bucket);
 
 // TODO
-int SHT_CreateBuckets(int fd, int buckets);
-
-// TODO
 int is_SHT_file(int fd);
 
 /* SHT_info functions -------------------------------------------------------------------*/
@@ -62,8 +61,6 @@ void* Get_SHT_info_Data(const SHT_info *info);
 SHT_info* Get_SHT_info(int fd);
 
 /* Bucket-Block functions ---------------------------------------------------------------*/
-
-//void SHT_InitBuckets(void *block);
 
 int SHT_InsertEntryToBucket(int fd, int starting_block_num, SecondaryRecord record, const char *key_name);
 
@@ -83,17 +80,14 @@ int SHT_PrintBlockRecordsWithKey(void *block, const char* key_name, void *value,
 
 int SHT_Record_size();
 
-// TODO
 SHT_Record* Get_SHT_Record(const void *data);
 
 void* get_SHT_Record_data(const SHT_Record *rec);
 
-// TODO
 void* Next_SHT_Record(void *current);
 
 int RecordsEqual(void *record, SHT_Record* other);
 
-// TODO
 int SHT_RecordHasKeyValue(void *record, void *value);
 
 /* The Hash function used by SHT. */

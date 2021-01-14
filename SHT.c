@@ -34,6 +34,11 @@ int SHT_HashCode(char* data, unsigned long int mod)
     return result;
 }
 
+void* Next_SHT_Record(void *current)
+{
+    return (char*)current + SHT_Record_size();
+}
+
 /* Converts the specified SHT_Record into a byte sequence (no padding). */
 void* get_SHT_Record_data(const SHT_Record *rec)
 {
@@ -166,10 +171,32 @@ int RecordsEqual(void *record, SHT_Record* other)
     return -1;
 }
 
+// Probably won't be needed.
 /* Returns a pointer to the last record of the specified block. */
 void* SHT_GetLastRecord(void *block)
 {
     return (char*)block + (GetBlockNumRecords(block) - 1)*SHT_Record_size();
+}
+
+int SHT_RecordHasKeyValue(void *record, void *value)
+{
+    return ( strcmp(record, value) == 0 );
+}
+
+SHT_Record* Get_SHT_Record(const void *data)
+{
+    SHT_Record *record = malloc(sizeof(SHT_Record));
+
+    const void *temp = data;        // Used to iterate over the sequence
+
+    // Copying key value
+    strcpy(record->surname, temp);
+    temp = (char*)temp + (strlen(temp) + 1);
+
+    // Copying block ID
+    memcpy(record->blockID, temp, sizeof(int));
+
+    return record;
 }
 
 /* SHT_Record-Block functions -----------------------------------------------------------*/
@@ -390,6 +417,8 @@ int SHT_GetAllBucketEntries(int fd, int starting_block_num, const char* key_name
     // If no entry is found, 0 is returned
     return read_blocks_until_rec;
 }
+
+/* General SHT functions ----------------------------------------------------------------*/
 
 /*  Inserts the specified record in the hash file, as long as the key field (as specified in
     the header) does not have a duplicate value.
