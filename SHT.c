@@ -450,6 +450,7 @@ int SHT_InitFile(int fd, const char *name, int length, unsigned long int buckets
     data = Get_SHT_info_Data(&info);
 
     free(info.attrName);
+    free(info.fileName);
 
     // Storing a "sec_hash" string to identify that this is a Hash File
     memcpy(block, "sec_hash", strlen("sec_hash") + 1);
@@ -502,6 +503,16 @@ SHT_info* SHT_OpenSecondaryIndex(char *fileName)
     info = Get_SHT_info(fd);
 
     return info;
+}
+
+int SHT_CloseSecondaryIndex(SHT_info *header_info)
+{
+    if (header_info == NULL) { return -1; }
+
+    if (BF_CloseFile(header_info->fileDesc) < 0) { return -1; }
+
+    delete_SHT_info(header_info);
+    return 0;
 }
 
 /*  Inserts the specified record in the hash file, as long as the key field (as specified in
@@ -567,17 +578,15 @@ int SHT_SecondaryInsertEntry(SHT_info header_info, SecondaryRecord record)
 /*  Prints a (unique) record for which key(id) == VALUE.
     Takes advantage of hashing to locate the corresponding bucket.
     Returns the number of blocks read until the record was found (or not found), -1 in case of error. */
-int SHT_SecondaryGetAllEntries(SHT_info header_info, void *value)
+int SHT_SecondaryGetAllEntries(SHT_info header_info_sht, HT_info header_info_ht, void *value)
 {
-    HT_info* primary_header = HT_OpenIndex(header_info.fileName);
-    if (primary_header == NULL) { return -1; }
     void *current_block;
     
-    if (BF_ReadBlock(header_info.fileDesc, 0, &current_block) < -1) { return -1; }
+    if (BF_ReadBlock(header_info_sht.fileDesc, 0, &current_block) < -1) { return -1; }
 
     int current_block_num = GetNextBlockNumber(current_block);
 
-    int hash_code = SHT_Hashcode((char*)value, header_info.numBuckets);    
+    int hash_code = SHT_Hashcode((char*)value, header_info_sht.numBuckets);    
     int target_block = hash_code / MAX_BUCKETS;                 // The block where the bucket for this hashcode is (relative position, not the id)
     int *target_bucket;
     int block_counter = 0;                                      // Counts read blocks
@@ -586,7 +595,7 @@ int SHT_SecondaryGetAllEntries(SHT_info header_info, void *value)
     // Iterating over the hashtable blocks
     while (current_block_num != -1)
     {
-        if (BF_ReadBlock(header_info.fileDesc, current_block_num, &current_block) < 0) { return -1; }
+        if (BF_ReadBlock(header_info_sht.fileDesc, current_block_num, &current_block) < 0) { return -1; }
 
         if (block_counter != target_block)
         // If this is not the target block, continue to the next one
@@ -608,9 +617,8 @@ int SHT_SecondaryGetAllEntries(SHT_info header_info, void *value)
             else
             // Bucket not empty, so search here
             {
-                total = block_counter + SHT_GetAllBucketEntries(header_info.fileDesc, *target_bucket,
-                                                               header_info.attrName, value, primary_header->fileDesc);
-                if ( HT_CloseIndex(primary_header) < 0 ) { return -1; }
+                total = block_counter + SHT_GetAllBucketEntries(header_info_sht.fileDesc, *target_bucket,
+                                                               header_info_sht.attrName, value, header_info_ht.fileDesc);
                 return total;
             }
         }        

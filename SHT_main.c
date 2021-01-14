@@ -12,8 +12,8 @@
 #include "HT.h"
 #include "SHT.h"
 
-#define INPUT_FILE "record_examples/records1K.txt"
-#define NUM_BUCKETS 2000
+#define INPUT_FILE "record_examples/records5K.txt"
+#define NUM_BUCKETS 5000
 
 int main(void)
 {
@@ -144,14 +144,16 @@ int main(void)
     }
     // At this point, all records in file have been inserted
     fclose(inputFile);
-    HT_CloseIndex(info);
     
     char temp[25];
     for (int i = 0; i < records; i++)
     {
         sprintf(temp, "surname_%d", i);
-        SHT_SecondaryGetAllEntries(*sec_info, temp);
+        SHT_SecondaryGetAllEntries(*sec_info, *info, temp);
     }
+
+    HT_CloseIndex(info);
+    SHT_CloseSecondaryIndex(sec_info);
 
     return 0;
 }
