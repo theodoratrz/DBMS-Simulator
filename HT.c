@@ -19,7 +19,7 @@ int GetHashcode(int id, unsigned long int mod)
     char *data = (char*)&id;
 
     // Initial hashcode is stored here
-    char *hash = malloc(sizeof(SHA_DIGEST_LENGTH));
+    char *hash = malloc(SHA_DIGEST_LENGTH);
     unsigned long int hash_num;
 
     // Getting the hashcode
