@@ -24,7 +24,7 @@ typedef struct {
     char* attrName;
     int attrLength;
     long int numBuckets;
-    char* fileName;
+    char fileName[15];
 } SHT_info;
 
 #define SHT_MAX_RECORDS 17
@@ -42,7 +42,7 @@ int SHT_SecondaryInsertEntry(SHT_info header_info, SecondaryRecord record);
 
 int SHT_SecondaryGetAllEntries(SHT_info header_info_sht, HT_info header_info_ht, void *value);
 
-//int HashStatistics(char *filename);
+//int SHT_HashStatistics(char *filename);
 
 int SHT_InitFile(int fd, const char *name, int length, unsigned long int buckets, const char *primary_file_name);
 
@@ -59,7 +59,7 @@ SHT_info* Get_SHT_info(int fd);
 
 /* Bucket-Block functions ---------------------------------------------------------------*/
 
-int SHT_InsertEntryToBucket(int fd, int starting_block_num, SecondaryRecord record, const char *key_name);
+int SHT_InsertEntryToBucket(int fd, int starting_block_num, SecondaryRecord record);
 
 int SHT_GetAllBucketEntries(int fd, int starting_block_num, const char* key_name, void *key_value, int pfd);
 
@@ -67,9 +67,7 @@ int SHT_GetAllBucketEntries(int fd, int starting_block_num, const char* key_name
 
 int SHT_InsertRecordtoBlock(int fd, int block_num, SHT_Record rec);
 
-int SHT_BlockHasRecord(void *block, const char* key_name, SHT_Record *rec);
-
-void* SHT_GetLastRecord(void *block);
+int SHT_BlockHasRecord(void *block, SHT_Record *rec);
 
 int SHT_PrintBlockRecordsWithKey(void *block, const char* key_name, void *value, int fd);
 

@@ -12,6 +12,7 @@
 #include "BF.h"
 #include "SHT.h"
 
+/* The hash function used by SHT. Uses SHA1. */
 int SHT_Hashcode(char* data, unsigned long int mod)
 {
     int result;
@@ -34,6 +35,7 @@ int SHT_Hashcode(char* data, unsigned long int mod)
     return result;
 }
 
+/* Returns a pointer to the next SHT Record (as byte sequence). */
 void* Next_SHT_Record(void *current)
 {
     return (char*)current + SHT_Record_size();
@@ -64,9 +66,10 @@ void* get_SHT_Record_data(const SHT_Record *rec)
 
 int SHT_info_size()
 {
-    return sizeof(int) + (strlen("surname") + 1) + sizeof(int) + sizeof(long int) + /*file name size?*/ 15;
+    return sizeof(int) + (strlen("surname") + 1) + sizeof(int) + sizeof(long int) + 15;
 }
 
+/* Converts the specified SHT_info into a byte sequence. */
 void* Get_SHT_info_Data(const SHT_info *info)
 {
     void *data;
@@ -105,7 +108,6 @@ void* Get_SHT_info_Data(const SHT_info *info)
 void delete_SHT_info(SHT_info *info)
 {
     free(info->attrName);
-    free(info->fileName);
     free(info);
 }
 
@@ -146,7 +148,6 @@ SHT_info* Get_SHT_info(int fd)
 
     // Copying fileName field (size must be determined first)
     len = strlen((char*)temp) + 1;
-    info->fileName = malloc(len);
     memcpy(info->fileName, temp, len);
 
     return info;
@@ -154,16 +155,20 @@ SHT_info* Get_SHT_info(int fd)
 
 /* SHT_Record functions -----------------------------------------------------------------*/
 
+/* Returns the size of each SHT_Record, without any padding. */
 int SHT_Record_size()
 {
     return 25 + sizeof(int);
 }
 
+/* Checks if the specified byte sequence SHT_Record is equal to OTHER.
+   Returns 0 if this is the case, -1 otherwise.*/
 int RecordsEqual(void *record, SHT_Record* other)
 {
-    // Different case for every possible field name
+    // Comparing key values (surnames)
     if (strncmp( (char*)record, other->surname, 25 ) == 0)
     {
+        // Comparing block ID's
         if (memcpy( (char*)record + 25, &(other->blockID), sizeof(int) ))
         {
             return 0;
@@ -172,13 +177,8 @@ int RecordsEqual(void *record, SHT_Record* other)
     return -1;
 }
 
-// Probably won't be needed.
-/* Returns a pointer to the last record of the specified block. */
-void* SHT_GetLastRecord(void *block)
-{
-    return (char*)block + (GetBlockNumRecords(block) - 1)*SHT_Record_size();
-}
-
+/* Returns 0 if the specified byte sequence SHT_Record has key value equal to VALUE,
+   -1 otherwise. */
 int SHT_RecordHasKeyValue(void *record, void *value)
 {
     if (strcmp(record, value) == 0)
@@ -188,6 +188,7 @@ int SHT_RecordHasKeyValue(void *record, void *value)
     return -1;
 }
 
+/* Creates a record using the specified byte sequence. */
 SHT_Record* Get_SHT_Record(const void *data)
 {
     SHT_Record *record = malloc(sizeof(SHT_Record));
@@ -206,7 +207,9 @@ SHT_Record* Get_SHT_Record(const void *data)
 
 /* SHT_Record-Block functions -----------------------------------------------------------*/
 
-int SHT_BlockHasRecord(void *block, const char* key_name, SHT_Record *rec)
+/* Returns 0 if the specified block contains a SHT_Record with key value
+   equal to the one in the specified Record. Returns -1 otherwise. */
+int SHT_BlockHasRecord(void *block, SHT_Record *rec)
 {
     int num_records = GetBlockNumRecords(block);
 
@@ -221,14 +224,14 @@ int SHT_BlockHasRecord(void *block, const char* key_name, SHT_Record *rec)
     while( curr_record_num <= num_records )
     {
         if (RecordsEqual(curr_record, rec) == 0)
-        // Record with same value in KEY_NAME found
+        // SHT_Record with same key value found
         {
             return 0;
         }
         curr_record = NextRecord(curr_record);
         curr_record_num++;
     }
-    // No record with same KEY_NAME field value found, so return -1
+    // No record with same key value value found, so return -1
     return -1;
 }
 
@@ -269,6 +272,9 @@ int SHT_InsertRecordtoBlock(int fd, int block_num, SHT_Record rec)
     }
 }
 
+/* Prints all the records in the specified block, with KEY_NAME field value equal to VALUE.
+   Returns 0 if any records where printed, -1 otherwise.
+   In case VALUE is NULL, all records will be printed. */
 int SHT_PrintBlockRecordsWithKey(void *block, const char* key_name, void *value, int fd)
 {
     int num_records = GetBlockNumRecords(block);
@@ -288,8 +294,14 @@ int SHT_PrintBlockRecordsWithKey(void *block, const char* key_name, void *value,
         if (SHT_RecordHasKeyValue(curr_record, value) == 0)
         // Found record to print
         {
+            // Get the record as a struct for easier handling
             sec_record = Get_SHT_Record(curr_record);
+
+            // Read the corresponding block of the primary hash file
+            // fd is the file descriptor of the primary hash file.
             if ( BF_ReadBlock(fd, sec_record->blockID, &primary_block) < 0) { return -1; }
+
+            // Print all records with specified key value from that block
             PrintBlockRecordsWithKey(primary_block, key_name, value);
             found_records++;
             free(sec_record);
@@ -309,7 +321,7 @@ int SHT_PrintBlockRecordsWithKey(void *block, const char* key_name, void *value,
 /* Inserts the specified Record in the bucket block (specified by number), if the key field value is unique.
    Returns the number of the block where the Record was inserted.
    If the Record was not inserted (duplicate key or error), -1 is returned. */
-int SHT_InsertEntryToBucket(int fd, int starting_block_num, SecondaryRecord sec_record, const char *key_name)
+int SHT_InsertEntryToBucket(int fd, int starting_block_num, SecondaryRecord sec_record)
 {
     void *current;
     
@@ -353,7 +365,7 @@ int SHT_InsertEntryToBucket(int fd, int starting_block_num, SecondaryRecord sec_
                     empty_block_found = 1;
                 }
             }
-            if (SHT_BlockHasRecord(current, key_name, &record) == 0)
+            if (SHT_BlockHasRecord(current, &record) == 0)
             // If the block already has a record with key equal to the specified one's,
             {
                 // Don't insert the record
@@ -392,6 +404,9 @@ int SHT_InsertEntryToBucket(int fd, int starting_block_num, SecondaryRecord sec_
     }
 }
 
+/*  Prints all Records with KEY_NAME field == KEY_VALUE, in the bucket starting
+    at the block with the specified number.
+    Returns the number of blocks read *up to the last printed record*, or -1 in case of error. */
 int SHT_GetAllBucketEntries(int fd, int starting_block_num, const char* key_name, void *key_value, int pfd)
 {
     void *curr_block;
@@ -407,6 +422,7 @@ int SHT_GetAllBucketEntries(int fd, int starting_block_num, const char* key_name
         if (BF_ReadBlock(fd, curr_block_num, &curr_block) < 0 ) { return -1; }
 
         // Print all Records of the current block with the specified key field value
+        // pfd is the file descriptor of the primary file
         if (SHT_PrintBlockRecordsWithKey(curr_block, key_name, key_value, pfd) == 0)
         {
             read_blocks_until_rec += blocks_from_last_rec;
@@ -425,6 +441,8 @@ int SHT_GetAllBucketEntries(int fd, int starting_block_num, const char* key_name
 
 /* General SHT functions ----------------------------------------------------------------*/
 
+/*  Initializes all the recuired information for the specified Secondary Hash file
+    (given attributes, blocks, buckets, etc.). Returns 0 if successful, -1 if failed. */
 int SHT_InitFile(int fd, const char *name, int length, unsigned long int buckets, const char *primary_file_name)
 {
     void* block;
@@ -443,19 +461,17 @@ int SHT_InitFile(int fd, const char *name, int length, unsigned long int buckets
     strcpy(info.attrName, name);
     info.attrLength = length;
     info.numBuckets = buckets;
-    info.fileName = malloc(strlen(primary_file_name) + 1);
     strcpy(info.fileName, primary_file_name);
 
     // Converting the struct into a byte sequence
     data = Get_SHT_info_Data(&info);
 
     free(info.attrName);
-    free(info.fileName);
 
     // Storing a "sec_hash" string to identify that this is a Hash File
     memcpy(block, "sec_hash", strlen("sec_hash") + 1);
 
-    // Storing the header sequence
+    // Storing the header sequence after it
     memcpy(block + strlen("sec_hash") + 1, data, SHT_info_size());
 
     free(data);
@@ -469,6 +485,7 @@ int SHT_InitFile(int fd, const char *name, int length, unsigned long int buckets
     return 0;
 }
 
+/* Creates a Secondary Hash File with the specified information. Returns -1 in case of an error, 0 otherwise. */
 int SHT_CreateSecondaryIndex(char *sfileName, char* attrName, int attrLength, int buckets, char* fileName)
 {
     int fd;
@@ -491,6 +508,8 @@ int SHT_CreateSecondaryIndex(char *sfileName, char* attrName, int attrLength, in
     return 0;
 }
 
+/* Opens the Secondary Hash File with the specified name.
+   If successful, returns the header struct of this file, otherwise returns NULL. */
 SHT_info* SHT_OpenSecondaryIndex(char *fileName)
 {
     SHT_info *info;
@@ -505,6 +524,8 @@ SHT_info* SHT_OpenSecondaryIndex(char *fileName)
     return info;
 }
 
+/* Closes the Secondary Hash File specified by the given header struct, which is deleted.
+   Returns 0 if successful, -1 otherwise. */
 int SHT_CloseSecondaryIndex(SHT_info *header_info)
 {
     if (header_info == NULL) { return -1; }
@@ -515,7 +536,7 @@ int SHT_CloseSecondaryIndex(SHT_info *header_info)
     return 0;
 }
 
-/*  Inserts the specified record in the hash file, as long as the key field (as specified in
+/*  Inserts the specified record in the secondary hash file, as long as the key field (as specified in
     the header) does not have a duplicate value.
     Takes advantage of hashing in order to quickly locate the bucket where the block should be inserted. 
     Returns the number of the block where the record was inserted, otherwise -1.*/
@@ -569,13 +590,13 @@ int SHT_SecondaryInsertEntry(SHT_info header_info, SecondaryRecord record)
             }
 
             // Ready to insert the record
-            return SHT_InsertEntryToBucket(fd, bucket_starting_block, record, header_info.attrName);            
+            return SHT_InsertEntryToBucket(fd, bucket_starting_block, record);            
         }        
     }
     return -1;    
 }
 
-/*  Prints a (unique) record for which key(id) == VALUE.
+/*  Prints all records record with key value = VALUE.
     Takes advantage of hashing to locate the corresponding bucket.
     Returns the number of blocks read until the record was found (or not found), -1 in case of error. */
 int SHT_SecondaryGetAllEntries(SHT_info header_info_sht, HT_info header_info_ht, void *value)
@@ -623,6 +644,5 @@ int SHT_SecondaryGetAllEntries(SHT_info header_info_sht, HT_info header_info_ht,
             }
         }        
     }
-
     return block_counter;
 }
