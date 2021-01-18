@@ -22,7 +22,7 @@ int SHT_Hashcode(char* data, unsigned long int mod)
     unsigned long int hash_num;
 
     // Getting the hashcode
-    SHA1(data, 4, hash);
+    SHA1(data, strlen(data), hash);
 
     // Copying part of it and storing it
     memcpy(&hash_num, hash, sizeof(unsigned long int));
@@ -645,4 +645,120 @@ int SHT_SecondaryGetAllEntries(SHT_info header_info_sht, HT_info header_info_ht,
         }        
     }
     return block_counter;
+}
+
+/* Prints several statistics about the hash file (record/bucket ratio etc.).
+   Returns 0 if succesful, otherwise -1. */
+int HashStatistics(char *filename)
+{
+    int fd;
+    if (fd = BF_OpenFile(filename) < 0) { return -1; }
+    void *current_block;
+
+    if ( (!IsHashFile(fd)) && (!is_SHT_file(fd)) )
+    // Return fail if this is not an HT file or SHT file
+    {
+        printf("The given file is not an HT or SHT file.\n");
+        return -1;
+    }
+    
+    if (BF_ReadBlock(fd, 0, &current_block) < -1) { return -1; }
+
+    int current_block_num = GetNextBlockNumber(current_block);
+    int bucket_starting_block;
+
+    // Counts total file blocks
+    int block_counter = 1;
+    // Counts total bucket blocks in file
+    int bucket_block_counter = 0;
+    // Counts total buckets
+    int file_buckets = 0;
+    // Counts total records in file
+    int record_counter = 0;
+    int max_bucket_records = -1;
+    int min_bucket_records = -1;
+    // Counts buckets with overflow block
+    int overflowed_buckets = 0;
+
+    int current_bucket_blocks;
+    int *current_bucket;    
+    // Counts buckets only in current block (Used for iteration)
+    int bucket_counter;    
+    int current_bucket_records;
+    
+    // Iterating over the Hash Table blocks (indexes)
+    while (current_block_num != -1)
+    {
+        // Iterating over the buckets of this block
+        bucket_counter = 0;
+        while (bucket_counter < MAX_BUCKETS)
+        {
+            // Read the current block in each loop
+            // Without this, current_block is reset at some point and the functionality totally breaks
+            if (BF_ReadBlock(fd, current_block_num, &current_block) < 0) { return -1; }
+
+            // Locating the bucket in the current block
+            current_bucket = (int*)current_block + bucket_counter;
+            if ( *current_bucket != -1 )
+            {
+                // Print stats for this bucket, and get counter values
+                if (GetBucketStats(fd, *current_bucket, &current_bucket_blocks, &current_bucket_records) < 0) { return -1; }
+                printf("Bucket: %d Total Overflow Blocks: %d\n", file_buckets, current_bucket_blocks - 1);
+
+                // Update total stats
+                if (current_bucket_blocks - 1 > 0)
+                {
+                    overflowed_buckets++;
+                }
+                bucket_block_counter += current_bucket_blocks;
+                block_counter += current_bucket_blocks;
+                record_counter += current_bucket_records;
+                if (current_bucket_records > max_bucket_records)
+                {
+                    max_bucket_records = current_bucket_records;
+                }
+                if ( (current_bucket_records < min_bucket_records) || (min_bucket_records == -1) )
+                {
+                    min_bucket_records = current_bucket_records;
+                }                
+            }
+            bucket_counter++;
+            file_buckets++;
+        }
+        block_counter++;
+        current_block_num = GetNextBlockNumber(current_block);
+    }
+
+    // Display final stats
+    printf("--------------- Total Stats ---------------\n");
+    printf("Total Blocks in File (with header): %d\n", block_counter);
+    printf("Minimum Records in initialized Bucket: %d\n", min_bucket_records);
+    printf("Maximum Records in Bucket: %d\n", max_bucket_records);
+    printf("Average Records per Bucket: %.3f\n", ((double)record_counter / (double)file_buckets));
+    printf("Average Blocks per Bucket: %.3f\n", ((double)bucket_block_counter / (double)file_buckets));
+    printf("Buckets with overflow Block: %d\n", overflowed_buckets);
+    printf("Note: If a bucket number is missing it means that bucket remained empty throughout the execution.\n");
+
+    if (BF_CloseFile(fd) < 0) { return -1; }
+
+    return 0;
+}
+
+/* Returns 1 if the file with the specified file descriptor is an SHT file, otherwise returns 0. */
+int is_SHT_file(int fd)
+{
+    void *block;
+
+    // Reading first block in the file
+    if(BF_ReadBlock(fd, 0, &block) < 0) { return -1; }
+
+    // Searching at the beginning of the file for "sec_hash" string
+    if (memcmp(block, "sec_hash", strlen("sec_hash") + 1) == 0)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }    
 }

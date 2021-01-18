@@ -35,18 +35,16 @@ int SHT_CreateSecondaryIndex(char *sfileName, char* attrName, int attrLength, in
 
 SHT_info* SHT_OpenSecondaryIndex(char *fileName);
 
-// TODO
 int SHT_CloseSecondaryIndex(SHT_info *header_info);
 
 int SHT_SecondaryInsertEntry(SHT_info header_info, SecondaryRecord record);
 
 int SHT_SecondaryGetAllEntries(SHT_info header_info_sht, HT_info header_info_ht, void *value);
 
-//int SHT_HashStatistics(char *filename);
-
 int SHT_InitFile(int fd, const char *name, int length, unsigned long int buckets, const char *primary_file_name);
 
-// TODO
+int HashStatistics(char *filename);
+
 int is_SHT_file(int fd);
 
 /* SHT_info functions -------------------------------------------------------------------*/

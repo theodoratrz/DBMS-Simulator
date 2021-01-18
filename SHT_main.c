@@ -1,5 +1,5 @@
 /*
- * File: HT_main.h
+ * File: SHT_main.h
  * Pavlos Spanoudakis (sdi1800184)
  * Theodora Troizi (sdi1800197)
  */
@@ -12,7 +12,7 @@
 #include "HT.h"
 #include "SHT.h"
 
-#define INPUT_FILE "record_examples/records5K.txt"
+#define INPUT_FILE "record_examples/records10K.txt"
 #define NUM_BUCKETS 5000
 
 int main(void)
@@ -24,7 +24,7 @@ int main(void)
     BF_Init();
     HT_CreateIndex(fileName, 'i', "id", 4, buckets);
     HT_info *info = HT_OpenIndex(fileName);
-    SHT_CreateSecondaryIndex(sfileName, "surname", 25, NUM_BUCKETS, fileName);
+    SHT_CreateSecondaryIndex(sfileName, "surname", 25, buckets, fileName);
     SHT_info *sec_info = SHT_OpenSecondaryIndex(sfileName);
 
     // Read input file, parse each line into a record and insert it in the hash file
@@ -148,12 +148,14 @@ int main(void)
     char temp[25];
     for (int i = 0; i < records; i++)
     {
+        // Searching for all surnames that were inserted in file
         sprintf(temp, "surname_%d", i);
         SHT_SecondaryGetAllEntries(*sec_info, *info, temp);
     }
 
     HT_CloseIndex(info);
     SHT_CloseSecondaryIndex(sec_info);
+    HashStatistics(sfileName);
 
     return 0;
 }
