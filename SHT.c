@@ -22,7 +22,7 @@ int SHT_Hashcode(char* data, unsigned long int mod)
     unsigned long int hash_num;
 
     // Getting the hashcode
-    SHA1(data, 4, hash);
+    SHA1(data, strlen(data), hash);
 
     // Copying part of it and storing it
     memcpy(&hash_num, hash, sizeof(unsigned long int));
@@ -752,7 +752,7 @@ int is_SHT_file(int fd)
     // Reading first block in the file
     if(BF_ReadBlock(fd, 0, &block) < 0) { return -1; }
 
-    // Comparing the beginning of the file for "hash" string
+    // Searching at the beginning of the file for "sec_hash" string
     if (memcmp(block, "sec_hash", strlen("sec_hash") + 1) == 0)
     {
         return 1;
