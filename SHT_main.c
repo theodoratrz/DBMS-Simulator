@@ -154,6 +154,7 @@ int main(void)
 
     HT_CloseIndex(info);
     SHT_CloseSecondaryIndex(sec_info);
+    HashStatistics(sfileName);
 
     return 0;
 }
