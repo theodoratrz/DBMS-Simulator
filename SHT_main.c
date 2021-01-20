@@ -13,7 +13,7 @@
 #include "SHT.h"
 
 #define INPUT_FILE "record_examples/records10K.txt"
-#define NUM_BUCKETS 5000
+#define NUM_BUCKETS 20000
 
 int main(void)
 {
@@ -83,9 +83,19 @@ int main(void)
 
                 // Inserting record in hash file
                 srec.blockId = HT_InsertEntry(*info, rec);
-                SHT_SecondaryInsertEntry(*sec_info, srec);
 
-                if (srec.blockId < 0) { exit(EXIT_FAILURE); }
+                if (srec.blockId < 0) { 
+                    perror ("Failed to insert Record to HT. Aborting\n");
+                    fclose(inputFile);
+                    exit(EXIT_FAILURE); 
+                }
+
+                if ( SHT_SecondaryInsertEntry(*sec_info, srec) < 0)
+                {   
+                    perror ("Failed to insert Record to SHT. Aborting\n");
+                    fclose(inputFile);
+                    exit(EXIT_FAILURE); 
+                }
 
                 records++;
 
@@ -144,6 +154,29 @@ int main(void)
     }
     // At this point, all records in file have been inserted
     fclose(inputFile);
+
+    for (int i = 0; i < records; i++)
+    {
+        //HT_GetAllEntries(*info, &i);
+
+        // HT_GetAllEntries does not take advantage of hashing (since it should work for
+        // other attributes apart from the id, like name or address, which are not hashed)
+
+        // HT_GetUniqueEntry does take advantage of hashing, so if we want to search
+        // with id as key, it is a much faster option.
+        if ( HT_GetUniqueEntry(*info, &i) < 0)
+        {
+            perror("Error Getting Record");
+            fclose(inputFile);
+            if (HT_CloseIndex(info) < 0)
+            {
+                perror("Error closing HT file");
+            }
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    printf ("---------------- Now searching in SHT ----------------\n");
     
     char temp[25];
     for (int i = 0; i < records; i++)
@@ -152,6 +185,8 @@ int main(void)
         sprintf(temp, "surname_%d", i);
         SHT_SecondaryGetAllEntries(*sec_info, *info, temp);
     }
+
+    printf ("------------ Now printing SHT statistics ------------\n");
 
     HT_CloseIndex(info);
     SHT_CloseSecondaryIndex(sec_info);

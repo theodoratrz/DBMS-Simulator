@@ -596,7 +596,7 @@ int SHT_SecondaryInsertEntry(SHT_info header_info, SecondaryRecord record)
     return -1;    
 }
 
-/*  Prints all records record with key value = VALUE.
+/*  For all SHT records with key value = VALUE, finds them in the Primary Index and prints them.
     Takes advantage of hashing to locate the corresponding bucket.
     Returns the number of blocks read until the record was found (or not found), -1 in case of error. */
 int SHT_SecondaryGetAllEntries(SHT_info header_info_sht, HT_info header_info_ht, void *value)
